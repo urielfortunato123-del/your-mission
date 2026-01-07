@@ -4,6 +4,7 @@ import { SummaryCards } from '@/components/SummaryCards';
 import { ActivityList } from '@/components/ActivityList';
 import { ActivityForm } from '@/components/ActivityForm';
 import { ExportButtons } from '@/components/ExportButtons';
+import { ActivityCharts } from '@/components/ActivityCharts';
 import { useActivities } from '@/hooks/useActivities';
 import { Activity } from '@/types/activity';
 import { toast } from 'sonner';
@@ -66,6 +67,14 @@ const Index = () => {
             Resumo Geral
           </h2>
           <SummaryCards summary={summary} />
+        </section>
+
+        {/* Charts */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4 text-foreground">
+            Estatísticas Visuais
+          </h2>
+          <ActivityCharts activities={activities} />
         </section>
 
         {/* Activities */}
