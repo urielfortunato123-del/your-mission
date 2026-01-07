@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Upload, Loader2, Image as ImageIcon, X } from 'lucide-react';
+import { Upload, Loader2, Image as ImageIcon, X, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -27,45 +27,51 @@ interface ImageUploadProps {
 export function ImageUpload({ onDataExtracted }: ImageUploadProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [fileType, setFileType] = useState<'image' | 'pdf' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf';
+
     // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Por favor, selecione uma imagem válida');
+    if (!isImage && !isPdf) {
+      toast.error('Por favor, selecione uma imagem ou PDF válido');
       return;
     }
 
     // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('Imagem muito grande. Máximo 10MB.');
+      toast.error('Arquivo muito grande. Máximo 10MB.');
       return;
     }
+
+    setFileType(isImage ? 'image' : 'pdf');
 
     // Create preview
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64 = reader.result as string;
       setPreview(base64);
-      await processImage(base64);
+      await processFile(base64, isPdf);
     };
     reader.readAsDataURL(file);
   };
 
-  const processImage = async (imageBase64: string) => {
+  const processFile = async (fileBase64: string, isPdf: boolean) => {
     setIsProcessing(true);
     
     try {
       const { data, error } = await supabase.functions.invoke('extract-activity', {
-        body: { imageBase64 }
+        body: { fileBase64, isPdf }
       });
 
       if (error) {
         console.error('Error calling edge function:', error);
-        toast.error('Erro ao processar imagem. Tente novamente.');
+        toast.error('Erro ao processar arquivo. Tente novamente.');
         return;
       }
 
@@ -115,8 +121,8 @@ export function ImageUpload({ onDataExtracted }: ImageUploadProps) {
         toast.success('Dados extraídos com sucesso!');
       }
     } catch (err) {
-      console.error('Error processing image:', err);
-      toast.error('Erro ao processar imagem');
+      console.error('Error processing file:', err);
+      toast.error('Erro ao processar arquivo');
     } finally {
       setIsProcessing(false);
     }
@@ -124,6 +130,7 @@ export function ImageUpload({ onDataExtracted }: ImageUploadProps) {
 
   const clearPreview = () => {
     setPreview(null);
+    setFileType(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -133,7 +140,7 @@ export function ImageUpload({ onDataExtracted }: ImageUploadProps) {
     <div className="space-y-4">
       <input
         type="file"
-        accept="image/*"
+        accept="image/*,application/pdf"
         onChange={handleFileSelect}
         ref={fileInputRef}
         className="hidden"
@@ -151,17 +158,24 @@ export function ImageUpload({ onDataExtracted }: ImageUploadProps) {
           <div className="flex flex-col items-center gap-2">
             <Upload className="h-6 w-6 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              Clique para enviar uma imagem do relatório
+              Clique para enviar imagem ou PDF do relatório
             </span>
           </div>
         </Button>
       ) : (
         <div className="relative rounded-lg border overflow-hidden">
-          <img
-            src={preview}
-            alt="Preview"
-            className="w-full h-32 object-cover"
-          />
+          {fileType === 'image' ? (
+            <img
+              src={preview}
+              alt="Preview"
+              className="w-full h-32 object-cover"
+            />
+          ) : (
+            <div className="w-full h-32 bg-muted flex items-center justify-center">
+              <FileText className="h-12 w-12 text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">PDF carregado</span>
+            </div>
+          )}
           {isProcessing && (
             <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
               <div className="flex flex-col items-center gap-2">
@@ -192,7 +206,7 @@ export function ImageUpload({ onDataExtracted }: ImageUploadProps) {
           className="w-full"
         >
           <ImageIcon className="h-4 w-4 mr-2" />
-          Enviar outra imagem
+          Enviar outro arquivo
         </Button>
       )}
     </div>

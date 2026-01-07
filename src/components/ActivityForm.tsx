@@ -100,9 +100,9 @@ export function ActivityForm({ open, onClose, onSave, initialData }: ActivityFor
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          {/* Image Upload for OCR */}
+          {/* Image/PDF Upload for OCR */}
           <div className="space-y-2">
-            <Label>Importar de Imagem (IA)</Label>
+            <Label>Importar de Imagem ou PDF (IA)</Label>
             <ImageUpload onDataExtracted={handleImageDataExtracted} />
           </div>
 
