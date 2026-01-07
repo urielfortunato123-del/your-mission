@@ -3,6 +3,7 @@ import { Header } from '@/components/Header';
 import { SummaryCards } from '@/components/SummaryCards';
 import { ActivityList } from '@/components/ActivityList';
 import { ActivityForm } from '@/components/ActivityForm';
+import { ExportButtons } from '@/components/ExportButtons';
 import { useActivities } from '@/hooks/useActivities';
 import { Activity } from '@/types/activity';
 import { toast } from 'sonner';
@@ -69,9 +70,12 @@ const Index = () => {
 
         {/* Activities */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 text-foreground">
-            Registros de Atividades
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-foreground">
+              Registros de Atividades
+            </h2>
+            <ExportButtons activities={activities} />
+          </div>
           <ActivityList
             activities={activities}
             onEdit={handleEdit}
