@@ -53,7 +53,18 @@ export function ActivityCharts({ activities }: ActivityChartsProps) {
     
     activities.forEach((a) => {
       if (!a.data) return;
-      const date = new Date(a.data);
+      
+      // Parse date correctly - handle both DD/MM/YYYY and YYYY-MM-DD formats
+      let date: Date;
+      if (a.data.includes('/')) {
+        const parts = a.data.split('/');
+        date = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      } else {
+        date = new Date(a.data);
+      }
+      
+      if (isNaN(date.getTime())) return;
+      
       const startOfYear = new Date(date.getFullYear(), 0, 1);
       const weekNumber = Math.ceil(
         ((date.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
@@ -87,23 +98,36 @@ export function ActivityCharts({ activities }: ActivityChartsProps) {
 
   // Equipamentos por dia
   const equipamentosPorDia = useMemo(() => {
-    const dayMap: Record<string, { efetivo: number; equipamentos: number }> = {};
+    const dayMap: Record<string, { efetivo: number; equipamentos: number; sortKey: number }> = {};
     
     activities.forEach((a) => {
       if (!a.data) return;
-      const date = new Date(a.data);
+      
+      // Parse date correctly - handle both DD/MM/YYYY and YYYY-MM-DD formats
+      let date: Date;
+      if (a.data.includes('/')) {
+        const parts = a.data.split('/');
+        date = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      } else {
+        date = new Date(a.data);
+      }
+      
+      if (isNaN(date.getTime())) return;
+      
       const dayLabel = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
       
       if (!dayMap[dayLabel]) {
-        dayMap[dayLabel] = { efetivo: 0, equipamentos: 0 };
+        dayMap[dayLabel] = { efetivo: 0, equipamentos: 0, sortKey: date.getTime() };
       }
       dayMap[dayLabel].efetivo += a.efetivoTotal || 0;
       dayMap[dayLabel].equipamentos += a.equipamentos || 0;
     });
 
     return Object.entries(dayMap)
-      .map(([name, data]) => ({ name, ...data }))
-      .slice(-10);
+      .map(([name, data]) => ({ name, efetivo: data.efetivo, equipamentos: data.equipamentos, sortKey: data.sortKey }))
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .slice(-10)
+      .map(({ name, efetivo, equipamentos }) => ({ name, efetivo, equipamentos }));
   }, [activities]);
 
   if (activities.length === 0) {
