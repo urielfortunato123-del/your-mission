@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Activity, EfetivoItem, EquipamentoItem } from '@/types/activity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { X, Save, Plus, Trash2 } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
+import { toast } from 'sonner';
 
 interface ActivityFormProps {
   open: boolean;
@@ -30,6 +31,7 @@ interface ActivityFormProps {
 
 const WEATHER_OPTIONS = ['BOM', 'CHUVA', 'NUBLADO', 'CHUVISCO'];
 const DIAS_SEMANA = ['SEGUNDA-FEIRA', 'TERÇA-FEIRA', 'QUARTA-FEIRA', 'QUINTA-FEIRA', 'SEXTA-FEIRA', 'SÁBADO', 'DOMINGO'];
+const FORM_CACHE_KEY = 'memoria-mensal-form-cache';
 
 const getDefaultFormData = (initialData?: Activity) => ({
   data: initialData?.data || new Date().toISOString().split('T')[0],
@@ -58,14 +60,80 @@ const getDefaultFormData = (initialData?: Activity) => ({
   ocorrencias: initialData?.ocorrencias || '',
 });
 
+// Load cached form data
+const loadCachedFormData = () => {
+  try {
+    const cached = localStorage.getItem(FORM_CACHE_KEY);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {
+    console.error('Erro ao carregar cache do formulário:', e);
+  }
+  return null;
+};
+
+// Save form data to cache
+const saveFormCache = (data: ReturnType<typeof getDefaultFormData>) => {
+  try {
+    localStorage.setItem(FORM_CACHE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('Erro ao salvar cache do formulário:', e);
+  }
+};
+
+// Clear form cache
+const clearFormCache = () => {
+  try {
+    localStorage.removeItem(FORM_CACHE_KEY);
+  } catch (e) {
+    console.error('Erro ao limpar cache do formulário:', e);
+  }
+};
+
 export function ActivityForm({ open, onClose, onSave, initialData }: ActivityFormProps) {
   const [formData, setFormData] = useState(getDefaultFormData(initialData));
+  const [hasCachedData, setHasCachedData] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setFormData(getDefaultFormData(initialData));
+      if (initialData) {
+        // Editing existing activity - use initialData
+        setFormData(getDefaultFormData(initialData));
+        setHasCachedData(false);
+      } else {
+        // New activity - check for cached data
+        const cached = loadCachedFormData();
+        if (cached) {
+          setFormData(cached);
+          setHasCachedData(true);
+          toast.info('Dados recuperados do rascunho anterior', {
+            action: {
+              label: 'Limpar',
+              onClick: () => {
+                clearFormCache();
+                setFormData(getDefaultFormData());
+                setHasCachedData(false);
+              }
+            }
+          });
+        } else {
+          setFormData(getDefaultFormData());
+          setHasCachedData(false);
+        }
+      }
     }
   }, [open, initialData]);
+
+  // Auto-save to cache when form changes (only for new activities)
+  useEffect(() => {
+    if (open && !initialData) {
+      const hasData = formData.fiscal || formData.obra || formData.contratada || formData.atividades;
+      if (hasData) {
+        saveFormCache(formData);
+      }
+    }
+  }, [formData, open, initialData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +146,9 @@ export function ActivityForm({ open, onClose, onSave, initialData }: ActivityFor
       efetivoTotal: efetivoTotal || formData.efetivoTotal,
       equipamentos: equipamentosTotal || formData.equipamentos,
     });
+    
+    // Clear cache after successful save
+    clearFormCache();
     onClose();
   };
 
