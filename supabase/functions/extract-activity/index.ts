@@ -11,11 +11,14 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64 } = await req.json();
+    const { fileBase64, isPdf, imageBase64 } = await req.json();
     
-    if (!imageBase64) {
+    // Support both old (imageBase64) and new (fileBase64) parameter names
+    const base64Data = fileBase64 || imageBase64;
+    
+    if (!base64Data) {
       return new Response(
-        JSON.stringify({ error: 'Imagem não fornecida' }),
+        JSON.stringify({ error: 'Arquivo não fornecido' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -29,7 +32,33 @@ serve(async (req) => {
       );
     }
 
-    console.log('Processing image for activity extraction...');
+    console.log('Processing file for activity extraction, isPdf:', isPdf);
+
+    // For PDF, we use the model that can handle documents directly
+    // Gemini can process PDF as base64 data
+    const messageContent = isPdf ? [
+      {
+        type: 'text',
+        text: 'Extraia os dados de atividade deste PDF de relatório de obra. Analise o documento e extraia todas as informações disponíveis:'
+      },
+      {
+        type: 'image_url',
+        image_url: {
+          url: base64Data
+        }
+      }
+    ] : [
+      {
+        type: 'text',
+        text: 'Extraia os dados de atividade desta imagem de relatório de obra:'
+      },
+      {
+        type: 'image_url',
+        image_url: {
+          url: base64Data
+        }
+      }
+    ];
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -43,7 +72,7 @@ serve(async (req) => {
           {
             role: 'system',
             content: `Você é um assistente especializado em extrair dados de relatórios de atividades de obras de construção civil.
-Analise a imagem e extraia os seguintes campos (se disponíveis):
+Analise o conteúdo e extraia os seguintes campos (se disponíveis):
 - data: Data no formato YYYY-MM-DD
 - diaSemana: Dia da semana (segunda-feira, terça-feira, etc)
 - fiscal: Nome do fiscal/responsável
@@ -63,18 +92,7 @@ Não inclua explicações, apenas o JSON.`
           },
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Extraia os dados de atividade desta imagem de relatório de obra:'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: imageBase64
-                }
-              }
-            ]
+            content: messageContent
           }
         ],
       }),
@@ -98,7 +116,7 @@ Não inclua explicações, apenas o JSON.`
       }
       
       return new Response(
-        JSON.stringify({ error: 'Erro ao processar imagem' }),
+        JSON.stringify({ error: 'Erro ao processar arquivo' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
