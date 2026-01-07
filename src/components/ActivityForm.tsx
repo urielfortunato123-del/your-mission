@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity } from '@/types/activity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { X, Save } from 'lucide-react';
+import { ImageUpload } from './ImageUpload';
 
 interface ActivityFormProps {
   open: boolean;
@@ -44,6 +45,25 @@ export function ActivityForm({ open, onClose, onSave, initialData }: ActivityFor
     observacoes: initialData?.observacoes || '',
   });
 
+  // Reset form when dialog opens/closes or initialData changes
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        data: initialData?.data || new Date().toISOString().split('T')[0],
+        dia: initialData?.dia || '',
+        fiscal: initialData?.fiscal || '',
+        contratada: initialData?.contratada || '',
+        obra: initialData?.obra || '',
+        frenteObra: initialData?.frenteObra || '',
+        condicoesClima: initialData?.condicoesClima || 'Bom',
+        efetivoTotal: initialData?.efetivoTotal || 0,
+        equipamentos: initialData?.equipamentos || 0,
+        atividades: initialData?.atividades || '',
+        observacoes: initialData?.observacoes || '',
+      });
+    }
+  }, [open, initialData]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
@@ -54,6 +74,22 @@ export function ActivityForm({ open, onClose, onSave, initialData }: ActivityFor
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleImageDataExtracted = (extracted: Record<string, unknown>) => {
+    setFormData((prev) => ({
+      ...prev,
+      data: (extracted.data as string) || prev.data,
+      dia: (extracted.diaSemana as string) || prev.dia,
+      fiscal: (extracted.fiscal as string) || prev.fiscal,
+      contratada: (extracted.contratada as string) || (extracted.equipe as string) || prev.contratada,
+      obra: (extracted.obra as string) || prev.obra,
+      frenteObra: (extracted.frenteTrabalho as string) || prev.frenteObra,
+      condicoesClima: (extracted.condicaoClimatica as string) || prev.condicoesClima,
+      efetivoTotal: (extracted.efetivoTotal as number) || prev.efetivoTotal,
+      equipamentos: (extracted.equipamentos as number) || prev.equipamentos,
+      atividades: (extracted.atividades as string) || (extracted.situacao as string) || prev.atividades,
+      observacoes: (extracted.observacoes as string) || prev.observacoes,
+    }));
+  };
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -64,6 +100,12 @@ export function ActivityForm({ open, onClose, onSave, initialData }: ActivityFor
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          {/* Image Upload for OCR */}
+          <div className="space-y-2">
+            <Label>Importar de Imagem (IA)</Label>
+            <ImageUpload onDataExtracted={handleImageDataExtracted} />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="data">Data</Label>
