@@ -37,6 +37,9 @@ const Index = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [saveAsDialogOpen, setSaveAsDialogOpen] = useState(false);
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
+  const [pendingFileData, setPendingFileData] = useState<Activity[] | null>(null);
+  const [pendingFileName, setPendingFileName] = useState('');
   const [fileName, setFileName] = useState('memoria-mensal');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,8 +109,9 @@ const Index = () => {
       try {
         const data = JSON.parse(event.target?.result as string);
         if (Array.isArray(data)) {
-          loadActivities(data);
-          toast.success(`Arquivo "${file.name}" carregado com sucesso! ${data.length} registros importados.`);
+          setPendingFileData(data);
+          setPendingFileName(file.name);
+          setLoadDialogOpen(true);
         } else {
           toast.error('Formato de arquivo inválido.');
         }
@@ -117,6 +121,24 @@ const Index = () => {
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const handleLoadReplace = () => {
+    if (pendingFileData) {
+      loadActivities(pendingFileData, false);
+      toast.success(`Arquivo "${pendingFileName}" carregado! ${pendingFileData.length} registros substituídos.`);
+      setPendingFileData(null);
+      setLoadDialogOpen(false);
+    }
+  };
+
+  const handleLoadMerge = () => {
+    if (pendingFileData) {
+      const result = loadActivities(pendingFileData, true);
+      toast.success(`Arquivo "${pendingFileName}" mesclado! ${result.added} novos, ${result.updated} atualizados.`);
+      setPendingFileData(null);
+      setLoadDialogOpen(false);
+    }
   };
 
   return (
@@ -222,6 +244,34 @@ const Index = () => {
             </Button>
             <Button onClick={handleSaveAs}>
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Load Options Dialog */}
+      <Dialog open={loadDialogOpen} onOpenChange={setLoadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Carregar Arquivo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              O arquivo <strong>"{pendingFileName}"</strong> contém {pendingFileData?.length || 0} registros.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Você tem atualmente {activities.length} registros. Como deseja carregar?
+            </p>
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={() => setLoadDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="secondary" onClick={handleLoadReplace}>
+              Substituir Tudo
+            </Button>
+            <Button onClick={handleLoadMerge}>
+              Mesclar (Atualizar)
             </Button>
           </DialogFooter>
         </DialogContent>
