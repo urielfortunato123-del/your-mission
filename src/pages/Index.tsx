@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Header } from '@/components/Header';
 import { SummaryCards } from '@/components/SummaryCards';
 import { ActivityList } from '@/components/ActivityList';
@@ -19,12 +19,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 
 const Index = () => {
-  const { activities, addActivity, updateActivity, deleteActivity, getMonthSummary } = useActivities();
+  const { activities, addActivity, updateActivity, deleteActivity, clearAllActivities, loadActivities, getMonthSummary } = useActivities();
   const [formOpen, setFormOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [saveAsDialogOpen, setSaveAsDialogOpen] = useState(false);
+  const [fileName, setFileName] = useState('memoria-mensal');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const summary = getMonthSummary();
 
@@ -58,9 +72,68 @@ const Index = () => {
     setEditingActivity(null);
   };
 
+  const handleClear = () => {
+    clearAllActivities();
+    toast.success('Todos os registros foram limpos.');
+    setClearDialogOpen(false);
+  };
+
+  const handleSaveAs = () => {
+    const dataStr = JSON.stringify(activities, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${fileName}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Arquivo "${fileName}.json" salvo com sucesso!`);
+    setSaveAsDialogOpen(false);
+  };
+
+  const handleLoad = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (Array.isArray(data)) {
+          loadActivities(data);
+          toast.success(`Arquivo "${file.name}" carregado com sucesso! ${data.length} registros importados.`);
+        } else {
+          toast.error('Formato de arquivo inválido.');
+        }
+      } catch {
+        toast.error('Erro ao ler o arquivo.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <Header onNewActivity={() => setFormOpen(true)} />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".json"
+        className="hidden"
+      />
+      <Header 
+        onNewActivity={() => setFormOpen(true)} 
+        onClear={() => setClearDialogOpen(true)}
+        onSaveAs={() => setSaveAsDialogOpen(true)}
+        onLoad={handleLoad}
+      />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Summary */}
@@ -101,6 +174,58 @@ const Index = () => {
         onSave={handleSave}
         initialData={editingActivity || undefined}
       />
+
+      {/* Clear Confirmation */}
+      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar todos os registros?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá apagar todos os {activities.length} registros salvos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClear} className="bg-destructive hover:bg-destructive/90">
+              Limpar Tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Save As Dialog */}
+      <Dialog open={saveAsDialogOpen} onOpenChange={setSaveAsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Salvar Como</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="filename">Nome do arquivo</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="filename"
+                  value={fileName}
+                  onChange={(e) => setFileName(e.target.value)}
+                  placeholder="nome-do-arquivo"
+                />
+                <span className="text-muted-foreground">.json</span>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {activities.length} registros serão salvos neste arquivo.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveAsDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveAs}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
