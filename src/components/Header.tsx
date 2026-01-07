@@ -1,11 +1,21 @@
-import { ClipboardList, Plus } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Save, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface HeaderProps {
   onNewActivity: () => void;
+  onClear: () => void;
+  onSaveAs: () => void;
+  onLoad: () => void;
 }
 
-export function Header({ onNewActivity }: HeaderProps) {
+export function Header({ onNewActivity, onClear, onSaveAs, onLoad }: HeaderProps) {
   return (
     <header className="gradient-hero border-b border-border/50 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
@@ -24,13 +34,38 @@ export function Header({ onNewActivity }: HeaderProps) {
             </div>
           </div>
           
-          <Button
-            onClick={onNewActivity}
-            className="gradient-accent hover:opacity-90 transition-opacity"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Atividade
-          </Button>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  Arquivo
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onLoad}>
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  Abrir...
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onSaveAs}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Salvar Como...
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onClear} className="text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Limpar Tudo
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              onClick={onNewActivity}
+              className="gradient-accent hover:opacity-90 transition-opacity"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Atividade
+            </Button>
+          </div>
         </div>
       </div>
     </header>

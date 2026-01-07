@@ -59,6 +59,18 @@ export function useActivities() {
     saveActivities(activities.filter((a) => a.id !== id));
   }, [activities, saveActivities]);
 
+  const clearAllActivities = useCallback(() => {
+    saveActivities([]);
+  }, [saveActivities]);
+
+  const loadActivities = useCallback((newActivities: Activity[]) => {
+    saveActivities(newActivities);
+  }, [saveActivities]);
+
+  const exportActivities = useCallback(() => {
+    return activities;
+  }, [activities]);
+
   const getMonthSummary = useCallback((month?: string): MonthSummary => {
     const filtered = month
       ? activities.filter((a) => a.data.startsWith(month))
@@ -95,6 +107,9 @@ export function useActivities() {
     addActivity,
     updateActivity,
     deleteActivity,
+    clearAllActivities,
+    loadActivities,
+    exportActivities,
     getMonthSummary,
   };
 }
