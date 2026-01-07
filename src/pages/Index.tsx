@@ -5,7 +5,7 @@ import { ActivityList } from '@/components/ActivityList';
 import { ActivityForm } from '@/components/ActivityForm';
 import { ExportButtons } from '@/components/ExportButtons';
 import { ActivityCharts } from '@/components/ActivityCharts';
-import { ImportExcel } from '@/components/ImportExcel';
+
 import { useActivities } from '@/hooks/useActivities';
 import { Activity } from '@/types/activity';
 import { toast } from 'sonner';
@@ -39,11 +39,6 @@ const Index = () => {
     setEditingActivity(null);
   };
 
-  const handleImportExcel = (importedActivities: Omit<Activity, 'id' | 'createdAt'>[]) => {
-    importedActivities.forEach((activity) => {
-      addActivity(activity);
-    });
-  };
 
   const handleEdit = (activity: Activity) => {
     setEditingActivity(activity);
@@ -85,14 +80,11 @@ const Index = () => {
         </section>
 
         <section>
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground">
               Registros de Atividades
             </h2>
-            <div className="flex items-center gap-2 flex-wrap">
-              <ImportExcel onImport={handleImportExcel} />
-              <ExportButtons activities={activities} />
-            </div>
+            <ExportButtons activities={activities} />
           </div>
           <ActivityList
             activities={activities}
