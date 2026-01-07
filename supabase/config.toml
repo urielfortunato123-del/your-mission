@@ -1,0 +1,4 @@
+project_id = "bdqcuurkjmvgihiyosjk"
+
+[functions.extract-activity]
+verify_jwt = false
