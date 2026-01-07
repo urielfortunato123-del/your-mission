@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { fileBase64, isPdf, imageBase64 } = await req.json();
+    const { fileBase64, isPdf, imageBase64, mimeType } = await req.json();
     
     // Support both old (imageBase64) and new (fileBase64) parameter names
     const base64Data = fileBase64 || imageBase64;
@@ -32,25 +32,60 @@ serve(async (req) => {
       );
     }
 
-    console.log('Processing file for activity extraction, isPdf:', isPdf);
+    console.log('Processing file for RDA extraction, isPdf:', isPdf);
 
-    // For PDF, we use the model that can handle documents directly
-    // Gemini can process PDF as base64 data
-    const messageContent = isPdf ? [
+    const systemPrompt = `Você é um assistente especializado em extrair dados de Relatórios Diários de Atividades (RDA) de obras de construção civil.
+    
+Analise o documento/imagem e extraia os seguintes campos no formato JSON:
+
+{
+  "data": "YYYY-MM-DD",
+  "diaSemana": "SEGUNDA-FEIRA|TERÇA-FEIRA|...",
+  "fiscal": "Nome do fiscal/emitente",
+  "contratada": "Nome da contratada",
+  "obra": "Nome/descrição da obra",
+  "frenteTrabalho": "Frente de obra/localização",
+  "area": "Área (ex: IMPLANTAÇÃO)",
+  "codigo": "Código do relatório (ex: RD)",
+  "cn": "Número CN",
+  "cliente": "Nome do cliente",
+  "temperatura": número em graus celsius,
+  "condicaoManha": "BOM|CHUVA|NUBLADO|CHUVISCO",
+  "condicaoTarde": "BOM|CHUVA|NUBLADO|CHUVISCO",
+  "condicaoNoite": "BOM|CHUVA|NUBLADO|CHUVISCO",
+  "condicaoClimatica": "condição geral resumida",
+  "praticavel": true ou false,
+  "volumeChuva": número em mm,
+  "efetivoDetalhado": [
+    {"funcao": "Engenheiro civil", "quantidade": 1},
+    {"funcao": "Pedreiro", "quantidade": 5},
+    ...
+  ],
+  "equipamentosDetalhado": [
+    {"equipamento": "Martelete", "quantidade": 4},
+    {"equipamento": "Maquita", "quantidade": 4},
+    ...
+  ],
+  "efetivoTotal": número total de pessoas,
+  "equipamentos": número total de equipamentos,
+  "atividades": "Descrição detalhada das atividades realizadas",
+  "observacoes": "Observações gerais",
+  "ocorrencias": "Ocorrências registradas"
+}
+
+REGRAS:
+- Converta datas para formato YYYY-MM-DD
+- Dias da semana em MAIÚSCULAS com hífen
+- Condições climáticas em MAIÚSCULAS (BOM, CHUVA, NUBLADO, CHUVISCO)
+- Some as quantidades do efetivo para efetivoTotal
+- Some as quantidades de equipamentos para equipamentos
+- Se não encontrar algum campo, use null
+- Retorne APENAS o JSON, sem explicações`;
+
+    const messageContent = [
       {
         type: 'text',
-        text: 'Extraia os dados de atividade deste PDF de relatório de obra. Analise o documento e extraia todas as informações disponíveis:'
-      },
-      {
-        type: 'image_url',
-        image_url: {
-          url: base64Data
-        }
-      }
-    ] : [
-      {
-        type: 'text',
-        text: 'Extraia os dados de atividade desta imagem de relatório de obra:'
+        text: 'Extraia os dados deste RDA (Relatório Diário de Atividades):'
       },
       {
         type: 'image_url',
@@ -69,31 +104,8 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          {
-            role: 'system',
-            content: `Você é um assistente especializado em extrair dados de relatórios de atividades de obras de construção civil.
-Analise o conteúdo e extraia os seguintes campos (se disponíveis):
-- data: Data no formato YYYY-MM-DD
-- diaSemana: Dia da semana (segunda-feira, terça-feira, etc)
-- fiscal: Nome do fiscal/responsável
-- contratada: Nome da empresa contratada/empreiteira
-- obra: Nome/código da obra
-- frenteTrabalho: Frente de trabalho (pista, faixa, estaca, etc)
-- condicaoClimatica: Condição do tempo (ensolarado, nublado, chuvoso, parcialmente_nublado)
-- efetivoTotal: Número total de efetivo/trabalhadores
-- equipamentos: Número de equipamentos
-- atividades: Descrição das atividades realizadas
-- observacoes: Observações adicionais
-- situacao: Status (Em Andamento, Finalizado, etc)
-- equipe: Nome da equipe
-
-Retorne APENAS um objeto JSON válido com os campos encontrados. Use null para campos não identificados.
-Não inclua explicações, apenas o JSON.`
-          },
-          {
-            role: 'user',
-            content: messageContent
-          }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: messageContent }
         ],
       }),
     });
@@ -129,7 +141,6 @@ Não inclua explicações, apenas o JSON.`
     // Parse JSON from response
     let extractedData = {};
     try {
-      // Try to extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         extractedData = JSON.parse(jsonMatch[0]);
