@@ -68,7 +68,7 @@ const Index = () => {
           <h2 className="text-lg font-semibold mb-4 text-foreground">
             Resumo Geral
           </h2>
-          <SummaryCards summary={summary} />
+          <SummaryCards summary={summary} activities={activities} />
         </section>
 
         {/* Charts */}
