@@ -7,6 +7,8 @@ import {
   Building2,
   HardHat,
   UserCheck,
+  ChevronRight,
+  ArrowLeft,
 } from 'lucide-react';
 import {
   Dialog,
@@ -15,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 
 interface SummaryCardsProps {
   summary: MonthSummary;
@@ -25,6 +28,7 @@ type DetailType = 'registros' | 'efetivo' | 'equipamentos' | 'contratadas' | 'ob
 
 export function SummaryCards({ summary, activities }: SummaryCardsProps) {
   const [detailOpen, setDetailOpen] = useState<DetailType>(null);
+  const [selectedContratada, setSelectedContratada] = useState<string | null>(null);
 
   const cards = [
     {
@@ -54,7 +58,6 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
       icon: Building2,
       color: 'accent',
       detailType: 'contratadas' as DetailType,
-      items: summary.contratodasAtivas,
     },
     {
       title: 'Obras Ativas',
@@ -62,7 +65,6 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
       icon: HardHat,
       color: 'primary',
       detailType: 'obras' as DetailType,
-      items: summary.obrasAtivas,
     },
     {
       title: 'Fiscais',
@@ -70,11 +72,13 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
       icon: UserCheck,
       color: 'success',
       detailType: 'fiscais' as DetailType,
-      items: summary.fiscais,
     },
   ];
 
   const getDetailTitle = () => {
+    if (selectedContratada) {
+      return `Detalhes - ${selectedContratada}`;
+    }
     switch (detailOpen) {
       case 'registros': return 'Detalhes dos Registros';
       case 'efetivo': return 'Detalhes do Efetivo';
@@ -95,7 +99,6 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
     }
   };
 
-  // Aggregate efetivo by function across all activities
   const getEfetivoDetails = () => {
     const efetivoMap: Record<string, number> = {};
     activities.forEach((a) => {
@@ -112,7 +115,6 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
       .sort((a, b) => b.quantidade - a.quantidade);
   };
 
-  // Aggregate equipamentos by type across all activities
   const getEquipamentosDetails = () => {
     const equipMap: Record<string, number> = {};
     activities.forEach((a) => {
@@ -129,7 +131,42 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
       .sort((a, b) => b.quantidade - a.quantidade);
   };
 
-  // Get registros grouped by contratada with counts
+  const getEquipamentosByContratada = (contratada: string) => {
+    const equipMap: Record<string, number> = {};
+    activities
+      .filter((a) => a.contratada === contratada)
+      .forEach((a) => {
+        if (a.equipamentosDetalhado && a.equipamentosDetalhado.length > 0) {
+          a.equipamentosDetalhado.forEach((e) => {
+            equipMap[e.equipamento] = (equipMap[e.equipamento] || 0) + e.quantidade;
+          });
+        } else if (a.equipamentos) {
+          equipMap['Geral'] = (equipMap['Geral'] || 0) + a.equipamentos;
+        }
+      });
+    return Object.entries(equipMap)
+      .map(([equipamento, quantidade]) => ({ equipamento, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade);
+  };
+
+  const getEfetivoByContratada = (contratada: string) => {
+    const efetivoMap: Record<string, number> = {};
+    activities
+      .filter((a) => a.contratada === contratada)
+      .forEach((a) => {
+        if (a.efetivoDetalhado && a.efetivoDetalhado.length > 0) {
+          a.efetivoDetalhado.forEach((e) => {
+            efetivoMap[e.funcao] = (efetivoMap[e.funcao] || 0) + e.quantidade;
+          });
+        } else if (a.efetivoTotal) {
+          efetivoMap['Geral'] = (efetivoMap['Geral'] || 0) + a.efetivoTotal;
+        }
+      });
+    return Object.entries(efetivoMap)
+      .map(([funcao, quantidade]) => ({ funcao, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade);
+  };
+
   const getRegistrosDetails = () => {
     const registrosMap: Record<string, { count: number; efetivo: number; equipamentos: number }> = {};
     activities.forEach((a) => {
@@ -146,7 +183,87 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
       .sort((a, b) => b.count - a.count);
   };
 
+  const handleCloseDialog = () => {
+    setDetailOpen(null);
+    setSelectedContratada(null);
+  };
+
+  const handleBackToRegistros = () => {
+    setSelectedContratada(null);
+  };
+
+  const renderContratadaDetails = () => {
+    if (!selectedContratada) return null;
+    
+    const equipamentos = getEquipamentosByContratada(selectedContratada);
+    const efetivo = getEfetivoByContratada(selectedContratada);
+    const totalEquip = equipamentos.reduce((sum, e) => sum + e.quantidade, 0);
+    const totalEfetivo = efetivo.reduce((sum, e) => sum + e.quantidade, 0);
+
+    return (
+      <div className="space-y-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleBackToRegistros}
+          className="mb-2 -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Voltar
+        </Button>
+
+        <div>
+          <h4 className="font-semibold text-sm text-muted-foreground mb-2 flex items-center gap-2">
+            <Truck className="h-4 w-4 text-warning" />
+            Equipamentos ({totalEquip})
+          </h4>
+          <div className="space-y-2">
+            {equipamentos.length === 0 ? (
+              <p className="text-muted-foreground text-sm pl-6">Nenhum equipamento</p>
+            ) : (
+              equipamentos.map((item, index) => (
+                <div
+                  key={index}
+                  className="p-2 rounded-lg bg-warning/5 border border-warning/20 flex justify-between items-center"
+                >
+                  <span className="text-sm">{item.equipamento}</span>
+                  <span className="text-warning font-bold">{item.quantidade}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-semibold text-sm text-muted-foreground mb-2 flex items-center gap-2">
+            <Users className="h-4 w-4 text-success" />
+            Efetivo ({totalEfetivo})
+          </h4>
+          <div className="space-y-2">
+            {efetivo.length === 0 ? (
+              <p className="text-muted-foreground text-sm pl-6">Nenhum efetivo</p>
+            ) : (
+              efetivo.map((item, index) => (
+                <div
+                  key={index}
+                  className="p-2 rounded-lg bg-success/5 border border-success/20 flex justify-between items-center"
+                >
+                  <span className="text-sm">{item.funcao}</span>
+                  <span className="text-success font-bold">{item.quantidade}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderDetailContent = () => {
+    if (selectedContratada) {
+      return renderContratadaDetails();
+    }
+
     if (detailOpen === 'registros') {
       const registros = getRegistrosDetails();
       return (
@@ -157,9 +274,13 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
             registros.map((item, index) => (
               <div
                 key={index}
-                className="p-3 rounded-lg bg-muted/50 border hover:bg-muted transition-colors"
+                className="p-3 rounded-lg bg-muted/50 border hover:bg-muted transition-colors cursor-pointer group"
+                onClick={() => setSelectedContratada(item.contratada)}
               >
-                <div className="font-medium">{item.contratada}</div>
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{item.contratada}</div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
                 <div className="text-sm text-muted-foreground mt-1 flex gap-4">
                   <span>{item.count} registros</span>
                   <span>{item.efetivo} efetivo</span>
@@ -226,7 +347,6 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
       );
     }
 
-    // Default: list items (contratadas, obras, fiscais)
     const items = getDetailItems();
     return (
       <div className="space-y-2">
@@ -252,7 +372,7 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
         {cards.map((card, index) => (
           <div
             key={card.title}
-            className={`card-elevated p-4 hover:scale-[1.02] transition-all duration-200 cursor-pointer hover:ring-2 hover:ring-primary/50`}
+            className="card-elevated p-4 hover:scale-[1.02] transition-all duration-200 cursor-pointer hover:ring-2 hover:ring-primary/50"
             style={{ animationDelay: `${index * 50}ms` }}
             onClick={() => setDetailOpen(card.detailType)}
           >
@@ -282,17 +402,22 @@ export function SummaryCards({ summary, activities }: SummaryCardsProps) {
         ))}
       </div>
 
-      {/* Detail Dialog */}
-      <Dialog open={detailOpen !== null} onOpenChange={() => setDetailOpen(null)}>
+      <Dialog open={detailOpen !== null} onOpenChange={handleCloseDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {detailOpen === 'registros' && <FileText className="h-5 w-5 text-primary" />}
-              {detailOpen === 'efetivo' && <Users className="h-5 w-5 text-success" />}
-              {detailOpen === 'equipamentos' && <Truck className="h-5 w-5 text-warning" />}
-              {detailOpen === 'contratadas' && <Building2 className="h-5 w-5 text-accent" />}
-              {detailOpen === 'obras' && <HardHat className="h-5 w-5 text-primary" />}
-              {detailOpen === 'fiscais' && <UserCheck className="h-5 w-5 text-success" />}
+              {selectedContratada ? (
+                <Building2 className="h-5 w-5 text-accent" />
+              ) : (
+                <>
+                  {detailOpen === 'registros' && <FileText className="h-5 w-5 text-primary" />}
+                  {detailOpen === 'efetivo' && <Users className="h-5 w-5 text-success" />}
+                  {detailOpen === 'equipamentos' && <Truck className="h-5 w-5 text-warning" />}
+                  {detailOpen === 'contratadas' && <Building2 className="h-5 w-5 text-accent" />}
+                  {detailOpen === 'obras' && <HardHat className="h-5 w-5 text-primary" />}
+                  {detailOpen === 'fiscais' && <UserCheck className="h-5 w-5 text-success" />}
+                </>
+              )}
               {getDetailTitle()}
             </DialogTitle>
           </DialogHeader>
