@@ -34,58 +34,63 @@ serve(async (req) => {
 
     console.log('Processing file for RDA extraction, isPdf:', isPdf);
 
-    const systemPrompt = `Você é um assistente especializado em extrair dados de Relatórios Diários de Atividades (RDA) de obras de construção civil.
-    
-Analise o documento/imagem e extraia os seguintes campos no formato JSON:
+    const systemPrompt = `Você é um especialista em OCR e extração de dados de Relatórios Diários de Atividades (RDA) de obras de construção civil.
+
+INSTRUÇÕES DE OCR:
+- Analise CADA PARTE da imagem cuidadosamente
+- Se o texto estiver borrado ou inclinado, faça seu melhor esforço para ler
+- Procure por tabelas, formulários, campos preenchidos à mão ou digitados
+- Preste atenção especial a números, datas e nomes
+- Se houver múltiplas páginas/seções, extraia TODOS os dados
+
+Extraia os seguintes campos no formato JSON:
 
 {
   "data": "YYYY-MM-DD",
-  "diaSemana": "SEGUNDA-FEIRA|TERÇA-FEIRA|...",
-  "fiscal": "Nome do fiscal/emitente",
-  "contratada": "Nome da contratada",
-  "obra": "Nome/descrição da obra",
-  "frenteTrabalho": "Frente de obra/localização",
-  "area": "Área (ex: IMPLANTAÇÃO)",
-  "codigo": "Código do relatório (ex: RD)",
-  "cn": "Número CN",
-  "cliente": "Nome do cliente",
-  "temperatura": número em graus celsius,
+  "diaSemana": "SEGUNDA-FEIRA|TERÇA-FEIRA|QUARTA-FEIRA|QUINTA-FEIRA|SEXTA-FEIRA|SÁBADO|DOMINGO",
+  "fiscal": "Nome do fiscal/emitente (quem assinou/elaborou)",
+  "contratada": "Nome da empresa contratada",
+  "obra": "Nome/descrição da obra ou contrato",
+  "frenteTrabalho": "Frente de obra/localização específica",
+  "area": "Área (ex: IMPLANTAÇÃO, PAVIMENTAÇÃO)",
+  "codigo": "Código do relatório (ex: RD-001)",
+  "cn": "Número CN se houver",
+  "cliente": "Nome do cliente/contratante",
+  "temperatura": número em graus celsius (só o número),
   "condicaoManha": "BOM|CHUVA|NUBLADO|CHUVISCO",
   "condicaoTarde": "BOM|CHUVA|NUBLADO|CHUVISCO",
   "condicaoNoite": "BOM|CHUVA|NUBLADO|CHUVISCO",
-  "condicaoClimatica": "condição geral resumida",
-  "praticavel": true ou false,
-  "volumeChuva": número em mm,
+  "condicaoClimatica": "resumo geral do clima",
+  "praticavel": true se o dia foi praticável/trabalhável, false se não,
+  "volumeChuva": número em mm (só o número),
   "efetivoDetalhado": [
-    {"funcao": "Engenheiro civil", "quantidade": 1},
-    {"funcao": "Pedreiro", "quantidade": 5},
-    ...
+    {"funcao": "Nome da função/cargo", "quantidade": número},
+    ...liste TODAS as funções encontradas...
   ],
   "equipamentosDetalhado": [
-    {"equipamento": "Martelete", "quantidade": 4},
-    {"equipamento": "Maquita", "quantidade": 4},
-    ...
+    {"equipamento": "Nome do equipamento", "quantidade": número},
+    ...liste TODOS os equipamentos encontrados...
   ],
-  "efetivoTotal": número total de pessoas,
-  "equipamentos": número total de equipamentos,
-  "atividades": "Descrição detalhada das atividades realizadas",
-  "observacoes": "Observações gerais",
-  "ocorrencias": "Ocorrências registradas"
+  "efetivoTotal": soma total de todas as pessoas,
+  "equipamentos": soma total de todos os equipamentos,
+  "atividades": "Descrição COMPLETA e DETALHADA de todas as atividades realizadas",
+  "observacoes": "Todas as observações encontradas",
+  "ocorrencias": "Todas as ocorrências/incidentes registrados"
 }
 
-REGRAS:
-- Converta datas para formato YYYY-MM-DD
-- Dias da semana em MAIÚSCULAS com hífen
-- Condições climáticas em MAIÚSCULAS (BOM, CHUVA, NUBLADO, CHUVISCO)
-- Some as quantidades do efetivo para efetivoTotal
-- Some as quantidades de equipamentos para equipamentos
-- Se não encontrar algum campo, use null
-- Retorne APENAS o JSON, sem explicações`;
+REGRAS CRÍTICAS:
+- Converta datas brasileiras (DD/MM/YYYY) para YYYY-MM-DD
+- Dias da semana em MAIÚSCULAS com hífen (SEGUNDA-FEIRA, TERÇA-FEIRA, etc)
+- Condições climáticas: normalize para BOM, CHUVA, NUBLADO ou CHUVISCO
+- NÃO PULE nenhum item do efetivo ou equipamentos - liste TODOS
+- Se um valor não existir, use null (não invente dados)
+- Retorne APENAS o JSON válido, sem markdown, sem explicações
+- Se houver texto manuscrito difícil de ler, faça seu melhor esforço`;
 
     const messageContent = [
       {
         type: 'text',
-        text: 'Extraia os dados deste RDA (Relatório Diário de Atividades):'
+        text: 'Use OCR para ler este documento RDA (Relatório Diário de Atividades). Extraia TODOS os dados visíveis, incluindo tabelas de efetivo e equipamentos:'
       },
       {
         type: 'image_url',
