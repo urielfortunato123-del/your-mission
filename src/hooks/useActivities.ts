@@ -27,6 +27,20 @@ export function useActivities() {
   const addActivity = useCallback((activity: Omit<Activity, 'id' | 'createdAt'>) => {
     const newActivity: Activity = {
       ...activity,
+      // Ensure new fields have defaults
+      area: activity.area || '',
+      codigo: activity.codigo || 'RD',
+      cn: activity.cn || '',
+      cliente: activity.cliente || '',
+      temperatura: activity.temperatura || 0,
+      condicaoManha: activity.condicaoManha || 'BOM',
+      condicaoTarde: activity.condicaoTarde || 'BOM',
+      condicaoNoite: activity.condicaoNoite || 'BOM',
+      praticavel: activity.praticavel ?? true,
+      volumeChuva: activity.volumeChuva || 0,
+      efetivoDetalhado: activity.efetivoDetalhado || [],
+      equipamentosDetalhado: activity.equipamentosDetalhado || [],
+      ocorrencias: activity.ocorrencias || '',
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
