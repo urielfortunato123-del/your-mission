@@ -1,4 +1,4 @@
-import { ClipboardList, Plus, Trash2, Save, FolderOpen, FileSpreadsheet, Calculator, FileDown, Upload, BarChart3 } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Save, FolderOpen, FileSpreadsheet, Calculator, FileDown, Upload, BarChart3, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,9 +17,10 @@ interface HeaderProps {
   onOpenServices?: () => void;
   onExportMedicao?: () => void;
   onOpenDashboard?: () => void;
+  onOpenManual?: () => void;
 }
 
-export function Header({ onNewActivity, onClear, onSaveAs, onLoad, onOpenPriceSheet, onOpenServices, onExportMedicao, onOpenDashboard }: HeaderProps) {
+export function Header({ onNewActivity, onClear, onSaveAs, onLoad, onOpenPriceSheet, onOpenServices, onExportMedicao, onOpenDashboard, onOpenManual }: HeaderProps) {
   return (
     <header className="gradient-hero border-b border-border/50 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
@@ -39,6 +40,18 @@ export function Header({ onNewActivity, onClear, onSaveAs, onLoad, onOpenPriceSh
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Botão de Ajuda */}
+            {onOpenManual && (
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={onOpenManual}
+                title="Manual do Sistema"
+              >
+                <HelpCircle className="h-5 w-5" />
+              </Button>
+            )}
+
             {/* Botão direto para Planilha de Preços */}
             {onOpenPriceSheet && (
               <Button 
