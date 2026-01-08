@@ -68,9 +68,20 @@ export function UserManual({ open, onOpenChange }: UserManualProps) {
 
                 <div className="space-y-4">
                   <UpdateCard
-                    version="1.2.0"
+                    version="1.3.0"
                     date="Janeiro 2025"
                     isNew
+                    features={[
+                      "Modo offline (PWA) - funciona sem internet",
+                      "Instalação como app na tela inicial",
+                      "Cache automático de recursos",
+                      "Página dedicada de instalação (/instalar)"
+                    ]}
+                  />
+
+                  <UpdateCard
+                    version="1.2.0"
+                    date="Janeiro 2025"
                     features={[
                       "Manual do usuário completo com documentação detalhada",
                       "Seção de novidades para acompanhar atualizações",
@@ -112,7 +123,7 @@ export function UserManual({ open, onOpenChange }: UserManualProps) {
                     Próximas Atualizações
                   </h3>
                   <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                    <RoadmapItem title="Modo offline (PWA)" status="em-breve" />
+                    <RoadmapItem title="Modo offline (PWA)" status="concluido" />
                     <RoadmapItem title="Sincronização na nuvem" status="planejado" />
                     <RoadmapItem title="Relatórios personalizados" status="planejado" />
                     <RoadmapItem title="App mobile nativo" status="futuro" />
@@ -533,9 +544,10 @@ function UpdateCard({ version, date, features, isNew }: { version: string; date:
   );
 }
 
-function RoadmapItem({ title, status }: { title: string; status: 'em-breve' | 'planejado' | 'futuro' }) {
+function RoadmapItem({ title, status }: { title: string; status: 'concluido' | 'em-breve' | 'planejado' | 'futuro' }) {
   const statusConfig = {
-    'em-breve': { label: 'Em Breve', className: 'bg-green-500/10 text-green-600 border-green-500/30' },
+    'concluido': { label: 'Concluído', className: 'bg-green-500/20 text-green-600 border-green-500/50' },
+    'em-breve': { label: 'Em Breve', className: 'bg-amber-500/10 text-amber-600 border-amber-500/30' },
     'planejado': { label: 'Planejado', className: 'bg-blue-500/10 text-blue-600 border-blue-500/30' },
     'futuro': { label: 'Futuro', className: 'bg-muted text-muted-foreground border-border' },
   };
