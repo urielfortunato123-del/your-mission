@@ -223,6 +223,7 @@ const Index = () => {
         onAdd={pricing.addPriceItem}
         onUpdate={pricing.updatePriceItem}
         onDelete={pricing.deletePriceItem}
+        onClearAll={pricing.clearPriceItems}
       />
 
       {/* Service Entries Manager */}

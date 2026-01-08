@@ -40,6 +40,7 @@ interface PriceSheetManagerProps {
   onAdd: (item: Omit<PriceItem, 'id' | 'createdAt'>) => void;
   onUpdate: (id: string, updates: Partial<PriceItem>) => void;
   onDelete: (id: string) => void;
+  onClearAll?: () => void;
 }
 
 const defaultItem: Omit<PriceItem, 'id' | 'createdAt'> & { quantidade: number } = {
@@ -60,6 +61,7 @@ export function PriceSheetManager({
   onAdd,
   onUpdate,
   onDelete,
+  onClearAll,
 }: PriceSheetManagerProps) {
   const [search, setSearch] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -258,6 +260,20 @@ export function PriceSheetManager({
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar
               </Button>
+              {priceItems.length > 0 && onClearAll && (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    if (confirm(`Limpar todos os ${priceItems.length} itens da planilha?`)) {
+                      onClearAll();
+                      toast.success('Planilha limpa com sucesso!');
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Limpar Tudo
+                </Button>
+              )}
             </div>
             <div className="relative flex-1 max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
