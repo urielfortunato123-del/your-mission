@@ -371,7 +371,6 @@ export function PriceSheetManager({
                   <TableHead className="w-[100px]">Código</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead className="w-[80px]">Unidade</TableHead>
-                  <TableHead className="w-[80px] text-right">Qtd.</TableHead>
                   <TableHead className="w-[120px] text-right">Preço Unit.</TableHead>
                   <TableHead className="w-[100px]">Categoria</TableHead>
                   <TableHead className="w-[80px]">Fonte</TableHead>
@@ -381,7 +380,7 @@ export function PriceSheetManager({
               <TableBody>
                 {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       {priceItems.length === 0
                         ? 'Nenhum item cadastrado. Importe uma planilha ou adicione manualmente.'
                         : 'Nenhum item encontrado com esse filtro.'
@@ -398,9 +397,6 @@ export function PriceSheetManager({
                         {item.descricao}
                       </TableCell>
                       <TableCell>{item.unidade}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {(item as any).quantidade ?? 1}
-                      </TableCell>
                       <TableCell className="text-right font-mono">
                         {formatCurrency(item.precoUnitario)}
                       </TableCell>
