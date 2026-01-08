@@ -106,6 +106,12 @@ export function Header({ onNewActivity, onClear, onSaveAs, onLoad, onOpenPriceSh
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
+                {onOpenManual && (
+                  <DropdownMenuItem onClick={onOpenManual}>
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    Manual do Sistema
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={onClear} className="text-destructive">
                   <Trash2 className="h-4 w-4 mr-2" />
                   Limpar Tudo
