@@ -13,9 +13,13 @@ serve(async (req) => {
   try {
     const { fileBase64, priceItems, activityContext } = await req.json();
     
-    if (!fileBase64) {
+    // Support both image-based and text-based extraction
+    const hasImage = !!fileBase64;
+    const hasText = !!activityContext?.atividades;
+    
+    if (!hasImage && !hasText) {
       return new Response(
-        JSON.stringify({ error: 'Arquivo não fornecido' }),
+        JSON.stringify({ error: 'Forneça uma imagem ou texto de atividades' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -94,18 +98,43 @@ REGRAS CRÍTICAS:
 5. Normalize unidades: metros = m, metros quadrados = m², metros cúbicos = m³
 6. Retorne APENAS JSON válido, sem markdown, sem explicações`;
 
-    const messageContent = [
-      {
-        type: 'text',
-        text: `Extraia os serviços executados com quantidades deste RDA/RDO e faça o MATCHING COM A PLANILHA DE PREÇOS baseado na descrição dos serviços.${activityContext ? `\n\nContexto do documento:\n- Data: ${activityContext.data || 'N/A'}\n- Contratada: ${activityContext.contratada || 'N/A'}\n- Fiscal: ${activityContext.fiscal || 'N/A'}\n- Obra: ${activityContext.obra || 'N/A'}\n- Frente: ${activityContext.frenteTrabalho || 'N/A'}` : ''}`
-      },
-      {
-        type: 'image_url',
-        image_url: {
-          url: fileBase64
+    // Build message content based on input type
+    let messageContent: any[];
+    
+    if (hasImage) {
+      // Image-based extraction
+      messageContent = [
+        {
+          type: 'text',
+          text: `Extraia os serviços executados com quantidades deste RDA/RDO e faça o MATCHING COM A PLANILHA DE PREÇOS baseado na descrição dos serviços.${activityContext ? `\n\nContexto do documento:\n- Data: ${activityContext.data || 'N/A'}\n- Contratada: ${activityContext.contratada || 'N/A'}\n- Fiscal: ${activityContext.fiscal || 'N/A'}\n- Obra: ${activityContext.obra || 'N/A'}\n- Frente: ${activityContext.frenteTrabalho || 'N/A'}` : ''}`
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: fileBase64
+          }
         }
-      }
-    ];
+      ];
+    } else {
+      // Text-based extraction
+      messageContent = [
+        {
+          type: 'text',
+          text: `Analise o texto abaixo de um RDA/RDO e extraia os serviços com quantidades. Faça o MATCHING COM A PLANILHA DE PREÇOS baseado na descrição.
+
+TEXTO DAS ATIVIDADES:
+${activityContext.atividades}
+
+${activityContext.observacoes ? `OBSERVAÇÕES:\n${activityContext.observacoes}` : ''}
+
+CONTEXTO:
+- Obra: ${activityContext.obra || 'N/A'}
+- Frente: ${activityContext.frenteObra || activityContext.frenteTrabalho || 'N/A'}
+
+IMPORTANTE: Extraia TODOS os serviços mencionados, mesmo que não tenham quantidades explícitas. Se não houver quantidade, use 1 como valor padrão.`
+        }
+      ];
+    }
 
     // Use flash model for good quality OCR + semantic matching
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
