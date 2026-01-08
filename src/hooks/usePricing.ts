@@ -432,6 +432,11 @@ export function usePricing() {
     saveServiceEntries([]);
   }, [savePriceItems, saveServiceEntries]);
 
+  // Clear only price items
+  const clearPriceItems = useCallback(() => {
+    savePriceItems([]);
+  }, [savePriceItems]);
+
   // Export data
   const exportPricing = useCallback(() => {
     return {
@@ -457,6 +462,7 @@ export function usePricing() {
     deletePriceItem,
     findPriceByCode,
     findPriceByDescription,
+    clearPriceItems,
     // Service entries
     addServiceEntry,
     addServiceEntries,
