@@ -46,7 +46,104 @@ export function usePricing() {
     localStorage.setItem(SERVICE_STORAGE_KEY, JSON.stringify(entries));
   }, []);
 
-  // Import price items from Excel/CSV
+  // Detect column indices from header row
+  const detectBMColumns = (rows: any[][]): { 
+    codigoCol: number; 
+    descricaoCol: number; 
+    unidadeCol: number; 
+    qtdeCol: number;
+    puCol: number; 
+    valorCol: number;
+    headerRowIndex: number;
+  } | null => {
+    // Look for header row with typical BM column names
+    const headerPatterns = {
+      codigo: /^(código|codigo|cod|item|id)$/i,
+      descricao: /^(descrição|descricao|desc|serviço|servico|atividade)$/i,
+      unidade: /^(un|und|unidade|unit)$/i,
+      qtde: /^(qtde|quantidade|quant|qt)$/i,
+      pu: /^(pu|preço\s*unit|preco\s*unit|valor\s*unit|p\.u\.)$/i,
+      valor: /^(valor|total|preço|preco)$/i,
+    };
+
+    for (let i = 0; i < Math.min(20, rows.length); i++) {
+      const row = rows[i];
+      if (!row) continue;
+
+      // Convert row to strings for pattern matching
+      const cells = row.map(c => String(c || '').trim());
+      
+      // Check if this looks like a header row (has multiple matching patterns)
+      let codigoCol = -1, descricaoCol = -1, unidadeCol = -1, qtdeCol = -1, puCol = -1, valorCol = -1;
+      
+      cells.forEach((cell, idx) => {
+        if (headerPatterns.codigo.test(cell)) codigoCol = idx;
+        if (headerPatterns.descricao.test(cell) || cell.includes('DESCRIÇÃO') || cell.includes('SERVIÇO')) descricaoCol = idx;
+        if (headerPatterns.unidade.test(cell)) unidadeCol = idx;
+        if (headerPatterns.qtde.test(cell)) qtdeCol = idx;
+        if (headerPatterns.pu.test(cell) || cell === 'PU') puCol = idx;
+        if (headerPatterns.valor.test(cell) && !cell.includes('UNIT')) valorCol = idx;
+      });
+
+      // Need at least codigo, descricao, and one of (pu or valor)
+      if (codigoCol >= 0 && descricaoCol >= 0 && (puCol >= 0 || valorCol >= 0)) {
+        return { 
+          codigoCol, 
+          descricaoCol, 
+          unidadeCol: unidadeCol >= 0 ? unidadeCol : descricaoCol + 1, 
+          qtdeCol: qtdeCol >= 0 ? qtdeCol : descricaoCol + 2,
+          puCol: puCol >= 0 ? puCol : valorCol - 1, 
+          valorCol: valorCol >= 0 ? valorCol : puCol + 1,
+          headerRowIndex: i 
+        };
+      }
+    }
+
+    // Fallback: detect BM format by looking for typical patterns
+    // BM format: Código | Linha | ID | DESCRIÇÃO SERVIÇO | UN | QTDE | PU | VALOR
+    for (let i = 0; i < Math.min(15, rows.length); i++) {
+      const row = rows[i];
+      if (!row) continue;
+      
+      const cells = row.map(c => String(c || '').trim().toUpperCase());
+      
+      // Look for BM characteristic header
+      if (cells.some(c => c.includes('DESCRIÇÃO SERVIÇO') || c.includes('DESCRICAO SERVICO'))) {
+        return {
+          codigoCol: 0,
+          descricaoCol: 3,
+          unidadeCol: 4,
+          qtdeCol: 5,
+          puCol: 6,
+          valorCol: 7,
+          headerRowIndex: i
+        };
+      }
+    }
+
+    return null;
+  };
+
+  // Parse price value from cell
+  const parsePrice = (value: any): number => {
+    if (typeof value === 'number') return value;
+    const str = String(value || '0')
+      .replace(/R\$\s*/g, '')
+      .replace(/\./g, '')  // Remove thousand separators
+      .replace(',', '.')   // Convert decimal comma
+      .replace(/[^\d.-]/g, '');
+    return parseFloat(str) || 0;
+  };
+
+  // Check if code looks like a valid service code (e.g., S6045, CS5500, BSO-01)
+  const isValidServiceCode = (code: string): boolean => {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized || normalized.length < 2) return false;
+    // Must start with letter and have letters+numbers
+    return /^[A-Z]{1,4}[\-\s]?\d/.test(normalized);
+  };
+
+  // Import price items from Excel/CSV (BM format)
   const importPriceSheet = useCallback((file: File): Promise<{ added: number; errors: string[] }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -55,47 +152,83 @@ export function usePricing() {
         try {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
           
           const errors: string[] = [];
           const newItems: PriceItem[] = [];
+          const seenCodes = new Set<string>();
           
-          // Skip header row
-          for (let i = 1; i < jsonData.length; i++) {
-            const row = jsonData[i];
-            if (!row || row.length === 0) continue;
+          // Process all sheets
+          workbook.SheetNames.forEach(sheetName => {
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
             
-            // Try to find columns by common names
-            const codigo = String(row[0] || '').trim();
-            const descricao = String(row[1] || '').trim();
-            const unidade = String(row[2] || '').trim();
-            const precoStr = String(row[3] || '0').replace(',', '.').replace(/[^\d.-]/g, '');
-            const preco = parseFloat(precoStr) || 0;
-            const categoria = String(row[4] || '').trim();
-            const fonte = String(row[5] || '').trim();
+            // Detect column structure
+            const columns = detectBMColumns(jsonData);
             
-            if (!codigo) {
-              errors.push(`Linha ${i + 1}: código vazio`);
-              continue;
+            if (!columns) {
+              // Fallback to simple format: Codigo | Descricao | UN | Preco
+              for (let i = 1; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (!row || row.length < 2) continue;
+                
+                const codigo = String(row[0] || '').trim().toUpperCase();
+                const descricao = String(row[1] || '').trim();
+                const unidade = String(row[2] || 'UN').trim();
+                const preco = parsePrice(row[3]);
+                
+                if (!codigo || !descricao) continue;
+                if (seenCodes.has(codigo)) continue;
+                
+                seenCodes.add(codigo);
+                newItems.push({
+                  id: crypto.randomUUID(),
+                  codigo,
+                  descricao,
+                  unidade: unidade || 'UN',
+                  precoUnitario: preco,
+                  categoria: sheetName !== 'Sheet1' ? sheetName : '',
+                  fonte: '',
+                  createdAt: new Date().toISOString(),
+                });
+              }
+              return;
             }
-            
-            if (!descricao) {
-              errors.push(`Linha ${i + 1}: descrição vazia`);
-              continue;
+
+            // Process rows using detected columns
+            for (let i = columns.headerRowIndex + 1; i < jsonData.length; i++) {
+              const row = jsonData[i];
+              if (!row || row.length < columns.codigoCol) continue;
+              
+              const codigo = String(row[columns.codigoCol] || '').trim().toUpperCase();
+              
+              // Skip non-service rows
+              if (!isValidServiceCode(codigo)) continue;
+              
+              const descricao = String(row[columns.descricaoCol] || '').trim();
+              if (!descricao || descricao.length < 3) continue;
+              
+              const unidade = String(row[columns.unidadeCol] || 'UN').trim().toUpperCase();
+              const preco = parsePrice(row[columns.puCol]);
+              
+              // Skip duplicates
+              if (seenCodes.has(codigo)) continue;
+              seenCodes.add(codigo);
+              
+              newItems.push({
+                id: crypto.randomUUID(),
+                codigo,
+                descricao,
+                unidade: unidade || 'UN',
+                precoUnitario: preco,
+                categoria: sheetName !== 'Sheet1' ? sheetName : '',
+                fonte: 'BM',
+                createdAt: new Date().toISOString(),
+              });
             }
-            
-            newItems.push({
-              id: crypto.randomUUID(),
-              codigo: codigo.toUpperCase(),
-              descricao,
-              unidade: unidade || 'un',
-              precoUnitario: preco,
-              categoria,
-              fonte,
-              createdAt: new Date().toISOString(),
-            });
+          });
+          
+          if (newItems.length === 0) {
+            errors.push('Nenhum item encontrado. Verifique o formato da planilha.');
           }
           
           // Merge with existing (update by codigo)
@@ -107,6 +240,7 @@ export function usePricing() {
           savePriceItems(Array.from(existingMap.values()));
           resolve({ added: newItems.length, errors });
         } catch (error) {
+          console.error('Erro ao importar planilha:', error);
           reject(error);
         }
       };
