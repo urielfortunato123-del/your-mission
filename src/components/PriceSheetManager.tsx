@@ -272,11 +272,13 @@ export function PriceSheetManager({
 
           {/* Add/Edit Form */}
           {isAdding && (
-            <div className="border rounded-lg p-4 bg-muted/50 space-y-3">
+            <div className="border rounded-lg p-4 bg-muted/50 space-y-4">
               <h4 className="font-medium">
                 {editingId ? 'Editar Item' : 'Novo Item'}
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              
+              {/* Linha 1: Código e Descrição */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
                   <Label>Código *</Label>
                   <Input
@@ -285,7 +287,7 @@ export function PriceSheetManager({
                     placeholder="BSO-01"
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="md:col-span-3">
                   <Label>Descrição *</Label>
                   <Input
                     value={formData.descricao}
@@ -293,6 +295,10 @@ export function PriceSheetManager({
                     placeholder="Revestimento em argamassa"
                   />
                 </div>
+              </div>
+              
+              {/* Linha 2: Unidade, Preço, Categoria, Fonte */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <Label>Unidade</Label>
                   <Select 
@@ -310,19 +316,6 @@ export function PriceSheetManager({
                   </Select>
                 </div>
                 <div>
-                  <Label>Quantidade</Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={formData.quantidade}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(',', '.');
-                      setFormData({ ...formData, quantidade: parseFloat(val) || 0 });
-                    }}
-                    placeholder="1"
-                  />
-                </div>
-                <div>
                   <Label>Preço Unitário (R$)</Label>
                   <Input
                     type="text"
@@ -332,6 +325,7 @@ export function PriceSheetManager({
                       const val = e.target.value.replace(',', '.');
                       setFormData({ ...formData, precoUnitario: parseFloat(val) || 0 });
                     }}
+                    placeholder="0,00"
                   />
                 </div>
                 <div>
@@ -347,13 +341,15 @@ export function PriceSheetManager({
                   <Input
                     value={formData.fonte}
                     onChange={(e) => setFormData({ ...formData, fonte: e.target.value })}
-                    placeholder="DER-SP, DNIT, SINAPI"
+                    placeholder="DER-SP, SINAPI"
                   />
                 </div>
-                <div className="flex items-end gap-2">
-                  <Button onClick={handleSave}>Salvar</Button>
-                  <Button variant="outline" onClick={handleCancel}>Cancelar</Button>
-                </div>
+              </div>
+              
+              {/* Botões */}
+              <div className="flex gap-2">
+                <Button onClick={handleSave}>Salvar</Button>
+                <Button variant="outline" onClick={handleCancel}>Cancelar</Button>
               </div>
             </div>
           )}
