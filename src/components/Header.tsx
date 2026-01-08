@@ -1,4 +1,4 @@
-import { ClipboardList, Plus, Trash2, Save, FolderOpen } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Save, FolderOpen, FileSpreadsheet, Calculator, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,9 +13,12 @@ interface HeaderProps {
   onClear: () => void;
   onSaveAs: () => void;
   onLoad: () => void;
+  onOpenPriceSheet?: () => void;
+  onOpenServices?: () => void;
+  onExportMedicao?: () => void;
 }
 
-export function Header({ onNewActivity, onClear, onSaveAs, onLoad }: HeaderProps) {
+export function Header({ onNewActivity, onClear, onSaveAs, onLoad, onOpenPriceSheet, onOpenServices, onExportMedicao }: HeaderProps) {
   return (
     <header className="gradient-hero border-b border-border/50 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
@@ -50,6 +53,25 @@ export function Header({ onNewActivity, onClear, onSaveAs, onLoad }: HeaderProps
                   <Save className="h-4 w-4 mr-2" />
                   Salvar Como...
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {onOpenPriceSheet && (
+                  <DropdownMenuItem onClick={onOpenPriceSheet}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Planilha de Preços
+                  </DropdownMenuItem>
+                )}
+                {onOpenServices && (
+                  <DropdownMenuItem onClick={onOpenServices}>
+                    <Calculator className="h-4 w-4 mr-2" />
+                    Memória de Cálculo
+                  </DropdownMenuItem>
+                )}
+                {onExportMedicao && (
+                  <DropdownMenuItem onClick={onExportMedicao}>
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Exportar Medição
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onClear} className="text-destructive">
                   <Trash2 className="h-4 w-4 mr-2" />
