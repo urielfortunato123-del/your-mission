@@ -164,6 +164,9 @@ const Index = () => {
         onClear={() => setClearDialogOpen(true)}
         onSaveAs={() => setSaveAsDialogOpen(true)}
         onLoad={handleLoad}
+        onOpenPriceSheet={() => setPriceSheetOpen(true)}
+        onOpenServices={() => setServicesOpen(true)}
+        onExportMedicao={() => setExportOpen(true)}
       />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
@@ -204,6 +207,35 @@ const Index = () => {
         onClose={handleCloseForm}
         onSave={handleSave}
         initialData={editingActivity || undefined}
+        priceItems={pricing.priceItems}
+        onServicesExtracted={pricing.addServiceEntries}
+      />
+
+      {/* Price Sheet Manager */}
+      <PriceSheetManager
+        open={priceSheetOpen}
+        onOpenChange={setPriceSheetOpen}
+        priceItems={pricing.priceItems}
+        onImport={pricing.importPriceSheet}
+        onAdd={pricing.addPriceItem}
+        onUpdate={pricing.updatePriceItem}
+        onDelete={pricing.deletePriceItem}
+      />
+
+      {/* Service Entries Manager */}
+      <ServiceEntriesManager
+        open={servicesOpen}
+        onOpenChange={setServicesOpen}
+        serviceEntries={pricing.serviceEntries}
+        onDelete={pricing.deleteServiceEntry}
+        getMedicaoSummary={pricing.getMedicaoSummary}
+      />
+
+      {/* Export Medicao */}
+      <MedicaoExport
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        getMedicaoSummary={pricing.getMedicaoSummary}
       />
 
       {/* Clear Confirmation */}

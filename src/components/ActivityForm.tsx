@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Activity, EfetivoItem, EquipamentoItem } from '@/types/activity';
+import { PriceItem, ServiceEntry } from '@/types/pricing';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,15 +19,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { X, Save, Plus, Trash2 } from 'lucide-react';
+import { X, Save, Plus, Trash2, Calculator } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
 
 interface ActivityFormProps {
   open: boolean;
   onClose: () => void;
   onSave: (activity: Omit<Activity, 'id' | 'createdAt'>) => void;
   initialData?: Activity;
+  priceItems?: PriceItem[];
+  onServicesExtracted?: (entries: Omit<ServiceEntry, 'id' | 'createdAt'>[]) => void;
 }
 
 const WEATHER_OPTIONS = ['BOM', 'CHUVA', 'NUBLADO', 'CHUVISCO'];
@@ -91,9 +96,11 @@ const clearFormCache = () => {
   }
 };
 
-export function ActivityForm({ open, onClose, onSave, initialData }: ActivityFormProps) {
+export function ActivityForm({ open, onClose, onSave, initialData, priceItems = [], onServicesExtracted }: ActivityFormProps) {
   const [formData, setFormData] = useState(getDefaultFormData(initialData));
   const [hasCachedData, setHasCachedData] = useState(false);
+  const [extractedServices, setExtractedServices] = useState<Array<{ codigo: string; descricao: string; quantidade: number; unidade: string; matched: boolean }>>([]);
+  const [isExtractingServices, setIsExtractingServices] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -141,15 +148,109 @@ export function ActivityForm({ open, onClose, onSave, initialData }: ActivityFor
     const efetivoTotal = formData.efetivoDetalhado.reduce((sum, item) => sum + item.quantidade, 0);
     const equipamentosTotal = formData.equipamentosDetalhado.reduce((sum, item) => sum + item.quantidade, 0);
     
-    onSave({
+    // Create activity data
+    const activityData = {
       ...formData,
       efetivoTotal: efetivoTotal || formData.efetivoTotal,
       equipamentos: equipamentosTotal || formData.equipamentos,
-    });
+    };
     
-    // Clear cache after successful save
+    onSave(activityData);
+    
+    // Save extracted services if any
+    if (extractedServices.length > 0 && onServicesExtracted) {
+      const matchedServices = extractedServices.filter(s => s.matched);
+      if (matchedServices.length > 0) {
+        const serviceEntries = matchedServices.map(service => {
+          const priceItem = priceItems.find(p => 
+            p.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '') === 
+            service.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '')
+          );
+          
+          return {
+            activityId: '', // Will be set after activity is created
+            priceItemId: priceItem?.id || '',
+            codigo: service.codigo,
+            descricao: priceItem?.descricao || service.descricao,
+            quantidade: service.quantidade,
+            unidade: priceItem?.unidade || service.unidade,
+            precoUnitario: priceItem?.precoUnitario || 0,
+            valorTotal: service.quantidade * (priceItem?.precoUnitario || 0),
+            data: formData.data,
+            contratada: formData.contratada,
+            fiscal: formData.fiscal,
+            obra: formData.obra,
+            localizacao: formData.frenteObra || formData.area || '',
+            observacoes: '',
+          };
+        });
+        
+        onServicesExtracted(serviceEntries);
+        toast.success(`${serviceEntries.length} serviço(s) lançado(s) na memória de cálculo!`);
+      }
+    }
+    
+    // Clear states
+    setExtractedServices([]);
     clearFormCache();
     onClose();
+  };
+
+  // Extract services from RDA text
+  const extractServicesFromText = async () => {
+    if (!formData.atividades) {
+      toast.error('Preencha o campo de atividades primeiro');
+      return;
+    }
+
+    if (priceItems.length === 0) {
+      toast.error('Importe uma planilha de preços primeiro');
+      return;
+    }
+
+    setIsExtractingServices(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('extract-services', {
+        body: {
+          priceItems: priceItems.map(p => ({ codigo: p.codigo, descricao: p.descricao, unidade: p.unidade })),
+          activityContext: {
+            atividades: formData.atividades,
+            observacoes: formData.observacoes,
+            obra: formData.obra,
+            frenteObra: formData.frenteObra,
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.servicos && Array.isArray(data.servicos)) {
+        const services = data.servicos.map((s: any) => {
+          const normalized = s.codigo?.toUpperCase().replace(/[^A-Z0-9]/g, '') || '';
+          const matched = priceItems.some(p => 
+            p.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '') === normalized
+          );
+          return {
+            codigo: s.codigo || '',
+            descricao: s.descricao || '',
+            quantidade: parseFloat(s.quantidade) || 0,
+            unidade: s.unidade || 'un',
+            matched,
+          };
+        });
+        
+        setExtractedServices(services);
+        const matchedCount = services.filter((s: any) => s.matched).length;
+        toast.success(`${services.length} serviço(s) encontrado(s), ${matchedCount} com código na planilha`);
+      } else {
+        toast.info('Nenhum serviço quantificado encontrado no texto');
+      }
+    } catch (error) {
+      console.error('Erro ao extrair serviços:', error);
+      toast.error('Erro ao extrair serviços do texto');
+    } finally {
+      setIsExtractingServices(false);
+    }
   };
 
   const updateField = (field: string, value: unknown) => {
@@ -544,6 +645,75 @@ export function ActivityForm({ open, onClose, onSave, initialData }: ActivityFor
               required
             />
           </div>
+
+          {/* Extração de Serviços para Memória de Cálculo */}
+          {priceItems.length > 0 && onServicesExtracted && (
+            <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-2">
+                  <Calculator className="h-4 w-4" />
+                  LANÇAMENTO DE SERVIÇOS
+                </h3>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={extractServicesFromText}
+                  disabled={isExtractingServices || !formData.atividades}
+                >
+                  {isExtractingServices ? 'Extraindo...' : 'Extrair Serviços (IA)'}
+                </Button>
+              </div>
+              
+              {extractedServices.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Preencha as atividades e clique em "Extrair Serviços" para identificar quantidades automaticamente
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {extractedServices.map((service, index) => (
+                    <div key={index} className="flex gap-2 items-center p-2 border rounded bg-background">
+                      <Badge variant={service.matched ? 'default' : 'secondary'} className="shrink-0">
+                        {service.codigo || 'N/A'}
+                      </Badge>
+                      <span className="flex-1 text-sm truncate" title={service.descricao}>
+                        {service.descricao}
+                      </span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={service.quantidade}
+                        onChange={(e) => {
+                          const updated = [...extractedServices];
+                          updated[index].quantidade = parseFloat(e.target.value) || 0;
+                          setExtractedServices(updated);
+                        }}
+                        className="w-24"
+                      />
+                      <span className="text-sm text-muted-foreground w-12">{service.unidade}</span>
+                      {!service.matched && (
+                        <span className="text-xs text-destructive">Código não encontrado</span>
+                      )}
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => {
+                          setExtractedServices(extractedServices.filter((_, i) => i !== index));
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                  <p className="text-sm text-muted-foreground">
+                    {extractedServices.filter(s => s.matched).length} de {extractedServices.length} serviço(s) com código válido serão lançados
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Observações e Ocorrências */}
           <div className="grid grid-cols-2 gap-4">
