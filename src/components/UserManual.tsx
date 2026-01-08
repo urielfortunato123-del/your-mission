@@ -20,7 +20,10 @@ import {
   HelpCircle,
   Calculator,
   Layers,
-  ClipboardList
+  ClipboardList,
+  Rocket,
+  CheckCircle2,
+  Calendar
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -40,8 +43,9 @@ export function UserManual({ open, onOpenChange }: UserManualProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="visao-geral" className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid grid-cols-4 mb-4">
+        <Tabs defaultValue="novidades" className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="grid grid-cols-5 mb-4">
+            <TabsTrigger value="novidades">Novidades</TabsTrigger>
             <TabsTrigger value="visao-geral">Visão Geral</TabsTrigger>
             <TabsTrigger value="atividades">Atividades</TabsTrigger>
             <TabsTrigger value="planilha">Planilha</TabsTrigger>
@@ -49,6 +53,72 @@ export function UserManual({ open, onOpenChange }: UserManualProps) {
           </TabsList>
 
           <ScrollArea className="flex-1 pr-4">
+            {/* NOVIDADES */}
+            <TabsContent value="novidades" className="space-y-6 mt-0">
+              <section className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2 text-primary">
+                  <Rocket className="h-5 w-5" />
+                  Novidades do Sistema
+                </h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  Confira as últimas atualizações e melhorias implementadas no sistema.
+                </p>
+              </section>
+
+              <div className="space-y-4">
+                <UpdateCard
+                  version="1.2.0"
+                  date="Janeiro 2025"
+                  isNew
+                  features={[
+                    "Manual do usuário completo com documentação detalhada",
+                    "Seção de novidades para acompanhar atualizações",
+                    "Botão 'Limpar Tudo' na planilha de preços",
+                    "Melhorias no layout do formulário de preços",
+                    "Footer com créditos do desenvolvedor"
+                  ]}
+                />
+
+                <UpdateCard
+                  version="1.1.0"
+                  date="Dezembro 2024"
+                  features={[
+                    "Extração de serviços com Inteligência Artificial",
+                    "Importação de planilhas via PDF usando IA",
+                    "Dashboard de medição com gráficos interativos",
+                    "Exportação para PDF e Excel",
+                    "Memória de cálculo consolidada"
+                  ]}
+                />
+
+                <UpdateCard
+                  version="1.0.0"
+                  date="Novembro 2024"
+                  features={[
+                    "Lançamento inicial do sistema",
+                    "Registro de atividades diárias",
+                    "Planilha de preços com importação Excel/CSV",
+                    "Anexo de fotos nas atividades",
+                    "Salvamento automático no navegador",
+                    "Exportação de dados em JSON"
+                  ]}
+                />
+              </div>
+
+              <section className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2 text-primary">
+                  <Calendar className="h-5 w-5" />
+                  Próximas Atualizações
+                </h3>
+                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                  <RoadmapItem title="Modo offline (PWA)" status="em-breve" />
+                  <RoadmapItem title="Sincronização na nuvem" status="planejado" />
+                  <RoadmapItem title="Relatórios personalizados" status="planejado" />
+                  <RoadmapItem title="App mobile nativo" status="futuro" />
+                </div>
+              </section>
+            </TabsContent>
+
             {/* VISÃO GERAL */}
             <TabsContent value="visao-geral" className="space-y-6 mt-0">
               <section className="space-y-4">
@@ -415,6 +485,51 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
     <div className="border-b border-border pb-3">
       <h4 className="font-medium text-sm mb-1">{question}</h4>
       <p className="text-sm text-muted-foreground">{answer}</p>
+    </div>
+  );
+}
+
+function UpdateCard({ version, date, features, isNew }: { version: string; date: string; features: string[]; isNew?: boolean }) {
+  return (
+    <div className="border rounded-lg p-4 bg-card">
+      <div className="flex items-center gap-2 mb-3">
+        <Badge variant={isNew ? "default" : "secondary"} className="text-xs">
+          v{version}
+        </Badge>
+        <span className="text-sm text-muted-foreground">{date}</span>
+        {isNew && (
+          <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+            Novo!
+          </Badge>
+        )}
+      </div>
+      <ul className="space-y-1.5">
+        {features.map((feature, index) => (
+          <li key={index} className="flex items-start gap-2 text-sm">
+            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+            <span className="text-muted-foreground">{feature}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function RoadmapItem({ title, status }: { title: string; status: 'em-breve' | 'planejado' | 'futuro' }) {
+  const statusConfig = {
+    'em-breve': { label: 'Em Breve', className: 'bg-green-500/10 text-green-600 border-green-500/30' },
+    'planejado': { label: 'Planejado', className: 'bg-blue-500/10 text-blue-600 border-blue-500/30' },
+    'futuro': { label: 'Futuro', className: 'bg-muted text-muted-foreground border-border' },
+  };
+
+  const config = statusConfig[status];
+
+  return (
+    <div className="flex items-center justify-between py-2">
+      <span className="text-sm">{title}</span>
+      <Badge variant="outline" className={`text-xs ${config.className}`}>
+        {config.label}
+      </Badge>
     </div>
   );
 }
