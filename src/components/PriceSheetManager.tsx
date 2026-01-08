@@ -18,10 +18,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Upload, Plus, Trash2, Search, FileSpreadsheet, Edit2, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
+
+const UNIDADES = ['un', 'm', 'm²', 'm³', 'kg', 'l', 'ton', 'vb', 'h', 'cj', 'pç', 'cx', 'sc', 'gl', 'km', 'ha'];
 
 interface PriceSheetManagerProps {
   open: boolean;
@@ -33,11 +42,12 @@ interface PriceSheetManagerProps {
   onDelete: (id: string) => void;
 }
 
-const defaultItem: Omit<PriceItem, 'id' | 'createdAt'> = {
+const defaultItem: Omit<PriceItem, 'id' | 'createdAt'> & { quantidade: number } = {
   codigo: '',
   descricao: '',
   unidade: 'un',
   precoUnitario: 0,
+  quantidade: 1,
   categoria: '',
   fonte: '',
 };
@@ -175,6 +185,7 @@ export function PriceSheetManager({
       descricao: item.descricao,
       unidade: item.unidade,
       precoUnitario: item.precoUnitario,
+      quantidade: 1,
       categoria: item.categoria || '',
       fonte: item.fonte || '',
     });
@@ -284,10 +295,29 @@ export function PriceSheetManager({
                 </div>
                 <div>
                   <Label>Unidade</Label>
+                  <Select 
+                    value={formData.unidade} 
+                    onValueChange={(value) => setFormData({ ...formData, unidade: value })}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {UNIDADES.map((un) => (
+                        <SelectItem key={un} value={un}>{un}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Quantidade</Label>
                   <Input
-                    value={formData.unidade}
-                    onChange={(e) => setFormData({ ...formData, unidade: e.target.value })}
-                    placeholder="m²"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.quantidade}
+                    onChange={(e) => setFormData({ ...formData, quantidade: parseFloat(e.target.value) || 0 })}
+                    placeholder="1"
                   />
                 </div>
                 <div>
