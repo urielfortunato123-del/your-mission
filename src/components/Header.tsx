@@ -1,4 +1,4 @@
-import { ClipboardList, Plus, Trash2, Save, FolderOpen, FileSpreadsheet, Calculator, FileDown } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Save, FolderOpen, FileSpreadsheet, Calculator, FileDown, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -38,6 +38,19 @@ export function Header({ onNewActivity, onClear, onSaveAs, onLoad, onOpenPriceSh
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Botão direto para Planilha de Preços */}
+            {onOpenPriceSheet && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onOpenPriceSheet}
+                className="hidden sm:flex"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Planilha BM
+              </Button>
+            )}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -57,7 +70,7 @@ export function Header({ onNewActivity, onClear, onSaveAs, onLoad, onOpenPriceSh
                 {onOpenPriceSheet && (
                   <DropdownMenuItem onClick={onOpenPriceSheet}>
                     <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Planilha de Preços
+                    Planilha de Preços (BM)
                   </DropdownMenuItem>
                 )}
                 {onOpenServices && (

@@ -18,9 +18,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Upload, Plus, Trash2, Search, FileSpreadsheet, Edit2 } from 'lucide-react';
+import { Upload, Plus, Trash2, Search, FileSpreadsheet, Edit2, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PriceSheetManagerProps {
   open: boolean;
@@ -55,7 +56,9 @@ export function PriceSheetManager({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(defaultItem);
   const [isImporting, setIsImporting] = useState(false);
+  const [isImportingPdf, setIsImportingPdf] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const filteredItems = priceItems.filter(item => {
     const term = search.toLowerCase();
@@ -83,6 +86,66 @@ export function PriceSheetManager({
       console.error(error);
     } finally {
       setIsImporting(false);
+      e.target.value = '';
+    }
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast.error('Por favor, selecione um arquivo PDF');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 10MB.');
+      return;
+    }
+
+    setIsImportingPdf(true);
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const fileBase64 = await base64Promise;
+
+      // Call edge function to extract price items from PDF
+      const { data, error } = await supabase.functions.invoke('extract-price-sheet', {
+        body: { fileBase64, isPdf: true }
+      });
+
+      if (error) throw error;
+
+      if (data?.items && Array.isArray(data.items)) {
+        let addedCount = 0;
+        data.items.forEach((item: any) => {
+          if (item.codigo && item.descricao) {
+            onAdd({
+              codigo: String(item.codigo).toUpperCase().trim(),
+              descricao: String(item.descricao).trim(),
+              unidade: String(item.unidade || 'un').trim(),
+              precoUnitario: parseFloat(item.precoUnitario) || 0,
+              categoria: String(item.categoria || '').trim(),
+              fonte: String(item.fonte || 'PDF Import').trim(),
+            });
+            addedCount++;
+          }
+        });
+        toast.success(`${addedCount} itens extraídos do PDF!`);
+      } else {
+        toast.error('Não foi possível extrair itens do PDF');
+      }
+    } catch (error) {
+      console.error('Erro ao processar PDF:', error);
+      toast.error('Erro ao processar PDF. Tente um arquivo Excel/CSV.');
+    } finally {
+      setIsImportingPdf(false);
       e.target.value = '';
     }
   };
@@ -145,7 +208,7 @@ export function PriceSheetManager({
         <div className="space-y-4">
           {/* Actions */}
           <div className="flex flex-wrap gap-2 items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -153,17 +216,36 @@ export function PriceSheetManager({
                 accept=".xlsx,.xls,.csv"
                 className="hidden"
               />
+              <input
+                type="file"
+                ref={pdfInputRef}
+                onChange={handlePdfUpload}
+                accept=".pdf"
+                className="hidden"
+              />
               <Button
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isImporting}
+                disabled={isImporting || isImportingPdf}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                {isImporting ? 'Importando...' : 'Importar Excel/CSV'}
+                {isImporting ? 'Importando...' : 'Excel/CSV'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => pdfInputRef.current?.click()}
+                disabled={isImporting || isImportingPdf}
+              >
+                {isImportingPdf ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4 mr-2" />
+                )}
+                {isImportingPdf ? 'Extraindo...' : 'PDF (IA)'}
               </Button>
               <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
                 <Plus className="h-4 w-4 mr-2" />
-                Adicionar Item
+                Adicionar
               </Button>
             </div>
             <div className="relative flex-1 max-w-xs">
