@@ -274,6 +274,7 @@ export function usePricing() {
 
   // Find price item by code (fuzzy match)
   const findPriceByCode = useCallback((codigo: string): PriceItem | null => {
+    if (!codigo) return null;
     const normalized = codigo.toUpperCase().replace(/[^A-Z0-9]/g, '');
     
     // Exact match first
@@ -288,6 +289,51 @@ export function usePricing() {
       normalized.includes(p.codigo.toUpperCase().replace(/[^A-Z0-9]/g, ''))
     );
     return partial || null;
+  }, [priceItems]);
+
+  // Find price item by description (semantic match with keywords)
+  const findPriceByDescription = useCallback((descricao: string): PriceItem | null => {
+    if (!descricao || descricao.length < 3) return null;
+    
+    const normalized = descricao.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 2);
+    
+    if (normalized.length === 0) return null;
+    
+    // Score each price item by keyword matches
+    let bestMatch: PriceItem | null = null;
+    let bestScore = 0;
+    
+    priceItems.forEach(item => {
+      const itemDesc = item.descricao.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ');
+      
+      let score = 0;
+      normalized.forEach(keyword => {
+        if (itemDesc.includes(keyword)) {
+          // Longer keywords are more significant
+          score += keyword.length;
+        }
+      });
+      
+      // Boost if unidade matches
+      const inputHasM2 = descricao.toLowerCase().includes('m²') || descricao.toLowerCase().includes('m2');
+      const inputHasM3 = descricao.toLowerCase().includes('m³') || descricao.toLowerCase().includes('m3');
+      if (inputHasM2 && item.unidade.toLowerCase().includes('m²')) score += 5;
+      if (inputHasM3 && item.unidade.toLowerCase().includes('m³')) score += 5;
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = item;
+      }
+    });
+    
+    // Minimum threshold for match
+    return bestScore >= 6 ? bestMatch : null;
   }, [priceItems]);
 
   // Add service entry
@@ -410,6 +456,7 @@ export function usePricing() {
     updatePriceItem,
     deletePriceItem,
     findPriceByCode,
+    findPriceByDescription,
     // Service entries
     addServiceEntry,
     addServiceEntries,
