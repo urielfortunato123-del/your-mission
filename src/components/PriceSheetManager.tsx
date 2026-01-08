@@ -209,8 +209,8 @@ export function PriceSheetManager({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+    <Dialog open={open} onOpenChange={onOpenChange} modal={true}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-visible">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
@@ -324,7 +324,13 @@ export function PriceSheetManager({
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
-                    <SelectContent className="bg-background z-[100] max-h-[200px]" position="popper" sideOffset={4}>
+                    <SelectContent 
+                      className="bg-background max-h-[200px] overflow-y-auto" 
+                      position="popper" 
+                      sideOffset={4}
+                      side="bottom"
+                      align="start"
+                    >
                       {UNIDADES.map((un) => (
                         <SelectItem key={un} value={un} className="cursor-pointer">{un}</SelectItem>
                       ))}
