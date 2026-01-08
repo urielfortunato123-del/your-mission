@@ -312,21 +312,26 @@ export function PriceSheetManager({
                 <div>
                   <Label>Quantidade</Label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     value={formData.quantidade}
-                    onChange={(e) => setFormData({ ...formData, quantidade: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(',', '.');
+                      setFormData({ ...formData, quantidade: parseFloat(val) || 0 });
+                    }}
                     placeholder="1"
                   />
                 </div>
                 <div>
                   <Label>Preço Unitário (R$)</Label>
                   <Input
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={formData.precoUnitario}
-                    onChange={(e) => setFormData({ ...formData, precoUnitario: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(',', '.');
+                      setFormData({ ...formData, precoUnitario: parseFloat(val) || 0 });
+                    }}
                   />
                 </div>
                 <div>
