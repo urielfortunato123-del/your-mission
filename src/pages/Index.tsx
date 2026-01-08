@@ -5,8 +5,12 @@ import { ActivityList } from '@/components/ActivityList';
 import { ActivityForm } from '@/components/ActivityForm';
 import { ExportButtons } from '@/components/ExportButtons';
 import { ActivityCharts } from '@/components/ActivityCharts';
+import { PriceSheetManager } from '@/components/PriceSheetManager';
+import { ServiceEntriesManager } from '@/components/ServiceEntriesManager';
+import { MedicaoExport } from '@/components/MedicaoExport';
 
 import { useActivities } from '@/hooks/useActivities';
+import { usePricing } from '@/hooks/usePricing';
 import { Activity } from '@/types/activity';
 import { toast } from 'sonner';
 import {
@@ -32,6 +36,8 @@ import { Label } from '@/components/ui/label';
 
 const Index = () => {
   const { activities, addActivity, updateActivity, deleteActivity, clearAllActivities, loadActivities, getMonthSummary } = useActivities();
+  const pricing = usePricing();
+  
   const [formOpen, setFormOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -41,6 +47,9 @@ const Index = () => {
   const [pendingFileData, setPendingFileData] = useState<Activity[] | null>(null);
   const [pendingFileName, setPendingFileName] = useState('');
   const [fileName, setFileName] = useState('memoria-mensal');
+  const [priceSheetOpen, setPriceSheetOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const summary = getMonthSummary();
