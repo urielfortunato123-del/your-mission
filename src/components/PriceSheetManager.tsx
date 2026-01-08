@@ -220,7 +220,7 @@ export function PriceSheetManager({
 
         <div className="space-y-4">
           {/* Actions */}
-          <div className="flex flex-wrap gap-2 items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-2 flex-wrap">
               <input
                 type="file"
@@ -261,8 +261,8 @@ export function PriceSheetManager({
                 Adicionar
               </Button>
               {priceItems.length > 0 && onClearAll && (
-                <Button 
-                  variant="destructive" 
+                <Button
+                  variant="destructive"
                   onClick={() => {
                     if (confirm(`Limpar todos os ${priceItems.length} itens da planilha?`)) {
                       onClearAll();
@@ -275,7 +275,8 @@ export function PriceSheetManager({
                 </Button>
               )}
             </div>
-            <div className="relative flex-1 max-w-xs">
+
+            <div className="relative w-full md:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={search}
