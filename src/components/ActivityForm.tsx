@@ -19,11 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { X, Save, Plus, Trash2, Calculator } from 'lucide-react';
+import { X, Save, Plus, Trash2, Calculator, Link2 } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
+import { MatchCorrector, getMatchSuggestion } from './MatchCorrector';
 
 interface ActivityFormProps {
   open: boolean;
@@ -99,8 +100,19 @@ const clearFormCache = () => {
 export function ActivityForm({ open, onClose, onSave, initialData, priceItems = [], onServicesExtracted }: ActivityFormProps) {
   const [formData, setFormData] = useState(getDefaultFormData(initialData));
   const [hasCachedData, setHasCachedData] = useState(false);
-  const [extractedServices, setExtractedServices] = useState<Array<{ codigo: string; descricao: string; quantidade: number; unidade: string; matched: boolean }>>([]);
+  const [extractedServices, setExtractedServices] = useState<Array<{ 
+    codigo: string; 
+    descricaoOriginal: string;
+    descricaoPlanilha: string | null;
+    quantidade: number; 
+    unidade: string; 
+    localizacao?: string;
+    confiancaMatch?: string;
+    matched: boolean 
+  }>>([]);
   const [isExtractingServices, setIsExtractingServices] = useState(false);
+  const [matchCorrectorOpen, setMatchCorrectorOpen] = useState(false);
+  const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -171,7 +183,7 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
             activityId: '', // Will be set after activity is created
             priceItemId: priceItem?.id || '',
             codigo: service.codigo,
-            descricao: priceItem?.descricao || service.descricao,
+            descricao: priceItem?.descricao || service.descricaoPlanilha || service.descricaoOriginal,
             quantidade: service.quantidade,
             unidade: priceItem?.unidade || service.unidade,
             precoUnitario: priceItem?.precoUnitario || 0,
@@ -180,7 +192,7 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
             contratada: formData.contratada,
             fiscal: formData.fiscal,
             obra: formData.obra,
-            localizacao: formData.frenteObra || formData.area || '',
+            localizacao: service.localizacao || formData.frenteObra || formData.area || '',
             observacoes: '',
           };
         });
@@ -224,17 +236,35 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
 
       if (error) throw error;
 
-      if (data?.servicos && Array.isArray(data.servicos)) {
-        const services = data.servicos.map((s: any) => {
-          const normalized = s.codigo?.toUpperCase().replace(/[^A-Z0-9]/g, '') || '';
-          const matched = priceItems.some(p => 
-            p.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '') === normalized
-          );
+      if (data?.data?.servicos && Array.isArray(data.data.servicos)) {
+        const services = data.data.servicos.map((s: any) => {
+          // Check if AI found a match, or try learning from history
+          let codigo = s.codigo || '';
+          let matched = false;
+          
+          if (codigo) {
+            matched = priceItems.some(p => 
+              p.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '') === codigo.toUpperCase().replace(/[^A-Z0-9]/g, '')
+            );
+          }
+          
+          // If no match, try to find from learning history
+          if (!matched && s.descricaoOriginal) {
+            const suggestion = getMatchSuggestion(s.descricaoOriginal);
+            if (suggestion) {
+              codigo = suggestion;
+              matched = true;
+            }
+          }
+          
           return {
-            codigo: s.codigo || '',
-            descricao: s.descricao || '',
+            codigo,
+            descricaoOriginal: s.descricaoOriginal || s.descricao || '',
+            descricaoPlanilha: s.descricaoPlanilha || null,
             quantidade: parseFloat(s.quantidade) || 0,
             unidade: s.unidade || 'un',
+            localizacao: s.localizacao || '',
+            confiancaMatch: s.confiancaMatch || '',
             matched,
           };
         });
@@ -673,11 +703,19 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
                 <div className="space-y-2">
                   {extractedServices.map((service, index) => (
                     <div key={index} className="flex gap-2 items-center p-2 border rounded bg-background">
-                      <Badge variant={service.matched ? 'default' : 'secondary'} className="shrink-0">
+                      <Badge 
+                        variant={service.matched ? 'default' : 'secondary'} 
+                        className="shrink-0 cursor-pointer hover:opacity-80"
+                        onClick={() => {
+                          setEditingServiceIndex(index);
+                          setMatchCorrectorOpen(true);
+                        }}
+                        title="Clique para editar vínculo"
+                      >
                         {service.codigo || 'N/A'}
                       </Badge>
-                      <span className="flex-1 text-sm truncate" title={service.descricao}>
-                        {service.descricao}
+                      <span className="flex-1 text-sm truncate" title={service.descricaoOriginal}>
+                        {service.descricaoPlanilha || service.descricaoOriginal}
                       </span>
                       <Input
                         type="number"
@@ -693,7 +731,19 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
                       />
                       <span className="text-sm text-muted-foreground w-12">{service.unidade}</span>
                       {!service.matched && (
-                        <span className="text-xs text-destructive">Código não encontrado</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingServiceIndex(index);
+                            setMatchCorrectorOpen(true);
+                          }}
+                          className="text-xs"
+                        >
+                          <Link2 className="h-3 w-3 mr-1" />
+                          Vincular
+                        </Button>
                       )}
                       <Button 
                         type="button" 
@@ -751,6 +801,37 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
             </Button>
           </div>
         </form>
+
+        {/* Match Corrector Dialog */}
+        <MatchCorrector
+          open={matchCorrectorOpen}
+          onOpenChange={setMatchCorrectorOpen}
+          service={editingServiceIndex !== null ? extractedServices[editingServiceIndex] : null}
+          priceItems={priceItems}
+          onSaveMatch={(service, priceItem) => {
+            if (editingServiceIndex === null) return;
+            
+            const updated = [...extractedServices];
+            if (priceItem) {
+              updated[editingServiceIndex] = {
+                ...updated[editingServiceIndex],
+                codigo: priceItem.codigo,
+                descricaoPlanilha: priceItem.descricao,
+                unidade: priceItem.unidade,
+                matched: true,
+              };
+            } else {
+              updated[editingServiceIndex] = {
+                ...updated[editingServiceIndex],
+                codigo: '',
+                descricaoPlanilha: null,
+                matched: false,
+              };
+            }
+            setExtractedServices(updated);
+            setEditingServiceIndex(null);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
