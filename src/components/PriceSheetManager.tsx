@@ -24,7 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface PriceSheetManagerProps {
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
   priceItems: PriceItem[];
   onImport: (file: File) => Promise<{ added: number; errors: string[] }>;
   onAdd: (item: Omit<PriceItem, 'id' | 'createdAt'>) => void;
@@ -43,7 +43,7 @@ const defaultItem: Omit<PriceItem, 'id' | 'createdAt'> = {
 
 export function PriceSheetManager({
   open,
-  onClose,
+  onOpenChange,
   priceItems,
   onImport,
   onAdd,
@@ -133,7 +133,7 @@ export function PriceSheetManager({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -320,7 +320,7 @@ export function PriceSheetManager({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Fechar
           </Button>
         </DialogFooter>

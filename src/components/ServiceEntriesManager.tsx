@@ -33,22 +33,18 @@ import { ptBR } from 'date-fns/locale';
 
 interface ServiceEntriesManagerProps {
   open: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
   serviceEntries: ServiceEntry[];
-  priceItems: PriceItem[];
   onDelete: (id: string) => void;
   getMedicaoSummary: (contratada?: string, periodo?: { inicio: string; fim: string }) => MedicaoSummary[];
-  onExportReport: (config: any) => void;
 }
 
 export function ServiceEntriesManager({
   open,
-  onClose,
+  onOpenChange,
   serviceEntries,
-  priceItems,
   onDelete,
   getMedicaoSummary,
-  onExportReport,
 }: ServiceEntriesManagerProps) {
   const [search, setSearch] = useState('');
   const [filterContratada, setFilterContratada] = useState<string>('all');
@@ -98,7 +94,7 @@ export function ServiceEntriesManager({
   const totalGeral = filteredEntries.reduce((sum, e) => sum + e.valorTotal, 0);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -323,7 +319,7 @@ export function ServiceEntriesManager({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Fechar
           </Button>
         </DialogFooter>

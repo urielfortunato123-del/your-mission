@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ServiceEntry, MedicaoSummary, ReportTemplate, ReportConfig } from '@/types/pricing';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,9 +27,8 @@ import { ptBR } from 'date-fns/locale';
 
 interface MedicaoExportProps {
   open: boolean;
-  onClose: () => void;
-  summaries: MedicaoSummary[];
-  serviceEntries: ServiceEntry[];
+  onOpenChange: (open: boolean) => void;
+  getMedicaoSummary: (contratada?: string, periodo?: { inicio: string; fim: string }) => MedicaoSummary[];
 }
 
 const TEMPLATE_NAMES: Record<ReportTemplate, string> = {
@@ -41,9 +40,8 @@ const TEMPLATE_NAMES: Record<ReportTemplate, string> = {
 
 export function MedicaoExport({
   open,
-  onClose,
-  summaries,
-  serviceEntries,
+  onOpenChange,
+  getMedicaoSummary,
 }: MedicaoExportProps) {
   const [config, setConfig] = useState<ReportConfig>({
     template: 'nota-servico',
@@ -55,7 +53,12 @@ export function MedicaoExport({
     contratada: '',
   });
 
-  const contratadas = [...new Set(serviceEntries.map(e => e.contratada))].sort();
+  // Get all summaries to extract contratadas list
+  const allSummaries = useMemo(() => getMedicaoSummary(), [getMedicaoSummary]);
+  const contratadas = useMemo(() => 
+    [...new Set(allSummaries.flatMap(s => s.itens.map(i => i.contratada)))].sort(),
+    [allSummaries]
+  );
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -72,22 +75,10 @@ export function MedicaoExport({
     }
   };
 
-  const getFilteredData = () => {
-    let filtered = [...serviceEntries];
-    
-    if (config.contratada) {
-      filtered = filtered.filter(e => e.contratada === config.contratada);
-    }
-    
-    if (config.periodo.inicio) {
-      filtered = filtered.filter(e => e.data >= config.periodo.inicio);
-    }
-    
-    if (config.periodo.fim) {
-      filtered = filtered.filter(e => e.data <= config.periodo.fim);
-    }
-    
-    return filtered;
+  const getFilteredData = (): ServiceEntry[] => {
+    const periodo = config.periodo.inicio && config.periodo.fim ? config.periodo : undefined;
+    const summaries = getMedicaoSummary(config.contratada || undefined, periodo);
+    return summaries.flatMap(s => s.itens);
   };
 
   const groupByCode = (entries: ServiceEntry[]) => {
@@ -211,8 +202,8 @@ export function MedicaoExport({
     const pageWidth = doc.internal.pageSize.getWidth();
     
     // Header based on template
-    let title = TEMPLATE_NAMES[config.template];
-    let headerHeight = 40;
+    const title = TEMPLATE_NAMES[config.template];
+    const headerHeight = 40;
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
@@ -296,7 +287,7 @@ export function MedicaoExport({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -398,7 +389,7 @@ export function MedicaoExport({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
           <Button variant="outline" onClick={exportToExcel}>
