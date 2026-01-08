@@ -9,6 +9,7 @@ import { PriceSheetManager } from '@/components/PriceSheetManager';
 import { ServiceEntriesManager } from '@/components/ServiceEntriesManager';
 import { MedicaoExport } from '@/components/MedicaoExport';
 import { MedicaoDashboard } from '@/components/MedicaoDashboard';
+import { UserManual } from '@/components/UserManual';
 
 import { useActivities } from '@/hooks/useActivities';
 import { usePricing } from '@/hooks/usePricing';
@@ -52,6 +53,7 @@ const Index = () => {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const summary = getMonthSummary();
@@ -170,6 +172,7 @@ const Index = () => {
         onOpenServices={() => setServicesOpen(true)}
         onExportMedicao={() => setExportOpen(true)}
         onOpenDashboard={() => setDashboardOpen(true)}
+        onOpenManual={() => setManualOpen(true)}
       />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
@@ -248,6 +251,12 @@ const Index = () => {
         onOpenChange={setDashboardOpen}
         serviceEntries={pricing.serviceEntries}
         getMedicaoSummary={pricing.getMedicaoSummary}
+      />
+
+      {/* User Manual */}
+      <UserManual
+        open={manualOpen}
+        onOpenChange={setManualOpen}
       />
 
       {/* Clear Confirmation */}
