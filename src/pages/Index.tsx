@@ -207,6 +207,13 @@ const Index = () => {
         </section>
       </main>
 
+      {/* Footer */}
+      <footer className="py-6 text-center border-t border-border/50 bg-muted/30">
+        <p className="text-sm text-muted-foreground animate-pulse">
+          Desenvolvido por <span className="font-semibold text-primary">Uriel da Fonseca Fortunato</span>
+        </p>
+      </footer>
+
       {/* Form Dialog */}
       <ActivityForm
         open={formOpen}
