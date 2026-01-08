@@ -308,9 +308,9 @@ export function PriceSheetManager({
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
-                    <SelectContent className="bg-background z-50">
+                    <SelectContent className="bg-background z-[100] max-h-[200px]" position="popper" sideOffset={4}>
                       {UNIDADES.map((un) => (
-                        <SelectItem key={un} value={un}>{un}</SelectItem>
+                        <SelectItem key={un} value={un} className="cursor-pointer">{un}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
