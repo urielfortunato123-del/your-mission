@@ -16,6 +16,21 @@ import { useActivities } from '@/hooks/useActivities';
 import { usePricing } from '@/hooks/usePricing';
 import { Activity } from '@/types/activity';
 import { toast } from 'sonner';
+
+interface ExtractedActivity {
+  data: string | null;
+  diaSemana: string | null;
+  fiscal: string | null;
+  contratada: string | null;
+  obra: string | null;
+  frenteTrabalho: string | null;
+  area: string | null;
+  atividades: string | null;
+  observacoes: string | null;
+  responsavel: string | null;
+  materiais: string | null;
+  quantidades: string | null;
+}
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +73,39 @@ const Index = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const summary = getMonthSummary();
+
+  const handleAddExtractedActivities = (extractedActivities: ExtractedActivity[]) => {
+    extractedActivities.forEach(ext => {
+      const newActivity: Omit<Activity, 'id' | 'createdAt'> = {
+        data: ext.data || new Date().toISOString().split('T')[0],
+        dia: ext.diaSemana || '',
+        fiscal: ext.fiscal || '',
+        contratada: ext.contratada || '',
+        obra: ext.obra || '',
+        frenteObra: ext.frenteTrabalho || '',
+        area: ext.area || '',
+        codigo: '',
+        cn: '',
+        cliente: '',
+        temperatura: 0,
+        condicaoManha: '',
+        condicaoTarde: '',
+        condicaoNoite: '',
+        praticavel: true,
+        volumeChuva: 0,
+        efetivoDetalhado: [],
+        equipamentosDetalhado: [],
+        condicoesClima: '',
+        efetivoTotal: 0,
+        equipamentos: 0,
+        atividades: ext.atividades || '',
+        observacoes: [ext.observacoes, ext.materiais, ext.quantidades].filter(Boolean).join(' | '),
+        ocorrencias: '',
+      };
+      addActivity(newActivity);
+    });
+    toast.success(`${extractedActivities.length} atividades importadas com sucesso!`);
+  };
 
   const handleSave = (data: Omit<Activity, 'id' | 'createdAt'>) => {
     if (editingActivity) {
@@ -199,7 +247,7 @@ const Index = () => {
               Registros de Atividades
             </h2>
             <div className="flex gap-2">
-              <TextReportExtractor />
+              <TextReportExtractor onAddActivities={handleAddExtractedActivities} />
               <ExportButtons activities={activities} />
             </div>
           </div>
