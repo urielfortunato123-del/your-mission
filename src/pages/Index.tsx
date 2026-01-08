@@ -10,6 +10,7 @@ import { ServiceEntriesManager } from '@/components/ServiceEntriesManager';
 import { MedicaoExport } from '@/components/MedicaoExport';
 import { MedicaoDashboard } from '@/components/MedicaoDashboard';
 import { UserManual } from '@/components/UserManual';
+import { TextReportExtractor } from '@/components/TextReportExtractor';
 
 import { useActivities } from '@/hooks/useActivities';
 import { usePricing } from '@/hooks/usePricing';
@@ -197,7 +198,10 @@ const Index = () => {
             <h2 className="text-lg font-semibold text-foreground">
               Registros de Atividades
             </h2>
-            <ExportButtons activities={activities} />
+            <div className="flex gap-2">
+              <TextReportExtractor />
+              <ExportButtons activities={activities} />
+            </div>
           </div>
           <ActivityList
             activities={activities}
