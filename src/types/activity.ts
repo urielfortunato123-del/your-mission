@@ -19,6 +19,16 @@ export interface Localizacao {
   segmento?: string;
 }
 
+export interface MedicaoManual {
+  id: string;
+  kmInicial: string;
+  kmFinal: string;
+  distancia: string;
+  largura: string;
+  altura: string;
+  tonelada: string;
+}
+
 export interface Activity {
   id: string;
   data: string;
@@ -53,6 +63,7 @@ export interface Activity {
   quantidadeVerificada?: string;
   valorUnitario?: string;
   valorTotal?: string;
+  medicoesManual?: MedicaoManual[];
   createdAt: string;
 }
 
