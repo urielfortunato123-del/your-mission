@@ -49,6 +49,10 @@ export interface Activity {
   atividades: string;
   observacoes: string;
   ocorrencias: string;
+  // Campos de medição
+  quantidadeVerificada?: string;
+  valorUnitario?: string;
+  valorTotal?: string;
   createdAt: string;
 }
 

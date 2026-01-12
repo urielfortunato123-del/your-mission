@@ -116,40 +116,41 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     // ===== ABA RESUMO =====
     const resumoSheet = workbook.addWorksheet('Resumo');
     
-    // Larguras das colunas
+    // Larguras das colunas (14 colunas agora)
     resumoSheet.columns = [
       { width: 12 }, { width: 14 }, { width: 8 }, { width: 25 }, { width: 40 },
-      { width: 15 }, { width: 18 }, { width: 10 }, { width: 8 }, { width: 8 }, { width: 60 },
+      { width: 15 }, { width: 18 }, { width: 10 }, { width: 8 }, { width: 8 }, { width: 50 },
+      { width: 20 }, { width: 15 }, { width: 25 },
     ];
 
     // Título
     let rowNum = 1;
-    resumoSheet.mergeCells(`A${rowNum}:K${rowNum}`);
+    resumoSheet.mergeCells(`A${rowNum}:N${rowNum}`);
     const titleCell = resumoSheet.getCell(`A${rowNum}`);
     titleCell.value = 'RELATÓRIO DE ATIVIDADES - RDA';
     titleCell.style = titleStyle;
     resumoSheet.getRow(rowNum).height = 30;
 
     rowNum++;
-    resumoSheet.mergeCells(`A${rowNum}:K${rowNum}`);
+    resumoSheet.mergeCells(`A${rowNum}:N${rowNum}`);
     resumoSheet.getCell(`A${rowNum}`).value = `Gerado em: ${new Date().toLocaleDateString('pt-BR')}`;
     resumoSheet.getCell(`A${rowNum}`).font = { italic: true };
 
     rowNum++;
-    resumoSheet.mergeCells(`A${rowNum}:K${rowNum}`);
+    resumoSheet.mergeCells(`A${rowNum}:N${rowNum}`);
     resumoSheet.getCell(`A${rowNum}`).value = `Total de registros: ${activitiesToExport.length}`;
     resumoSheet.getCell(`A${rowNum}`).font = { bold: true };
 
     if (dataInicio || dataFim) {
       rowNum++;
-      resumoSheet.mergeCells(`A${rowNum}:K${rowNum}`);
+      resumoSheet.mergeCells(`A${rowNum}:N${rowNum}`);
       resumoSheet.getCell(`A${rowNum}`).value = `Período: ${dataInicio || 'início'} até ${dataFim || 'fim'}`;
     }
 
     rowNum += 2;
     
-    // Cabeçalho da tabela
-    const headers = ['Data', 'Dia', 'Cód.', 'Obra', 'Fiscal', 'Contratada', 'Clima M/T/N', 'Pratic.', 'Efet.', 'Equip.', 'Atividades'];
+    // Cabeçalho da tabela (14 colunas)
+    const headers = ['Data', 'Dia', 'Cód.', 'Obra', 'Fiscal', 'Contratada', 'Clima M/T/N', 'Pratic.', 'Efet.', 'Equip.', 'Atividades', 'Quantidade Verificada', 'Valor Unitário', 'Valor Total'];
     const headerRow = resumoSheet.getRow(rowNum);
     headers.forEach((h, i) => {
       const cell = headerRow.getCell(i + 1);
@@ -174,6 +175,11 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
       const equipData = getMissingText(a.equipamentos, 'SEM INFO');
       const atividadesData = getMissingText(a.atividades, 'SEM ATIVIDADES');
       
+      // Campos de medição - sempre mostram texto em vermelho se não tiver info
+      const qtdVerificada = getMissingText(a.quantidadeVerificada, 'n tem informação');
+      const valorUnitario = getMissingText(a.valorUnitario, 'verificar bm');
+      const valorTotal = getMissingText(a.valorTotal, 'quantidade verificada*valor unitario');
+      
       const values = [
         { value: a.data, isMissing: false },
         { value: a.dia, isMissing: false },
@@ -186,6 +192,9 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
         efetivoData,
         equipData,
         { value: atividadesData.isMissing ? atividadesData.value : (a.atividades.length > 100 ? a.atividades.substring(0, 100) + '...' : a.atividades), isMissing: atividadesData.isMissing },
+        qtdVerificada,
+        valorUnitario,
+        valorTotal,
       ];
       
       values.forEach((v, i) => {
