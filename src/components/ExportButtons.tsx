@@ -63,36 +63,145 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
       return;
     }
 
-    const resumoData = formatDataForExcelResumo();
-    const detalhadoData = formatDataForExcelDetalhado();
-    
     const workbook = XLSX.utils.book_new();
     
-    // Aba Resumo (modelo igual ao PDF)
-    const resumoSheet = XLSX.utils.json_to_sheet(resumoData);
-    const resumoColWidths = [
-      { wch: 12 }, // Data
-      { wch: 14 }, // Dia
-      { wch: 6 },  // Cód.
-      { wch: 25 }, // Obra
-      { wch: 35 }, // Fiscal
-      { wch: 15 }, // Contratada
-      { wch: 16 }, // Clima M/T/N
-      { wch: 8 },  // Pratic.
-      { wch: 6 },  // Efet.
-      { wch: 7 },  // Equip.
-      { wch: 80 }, // Atividades
+    // ===== ABA RESUMO (igual primeira página do PDF) =====
+    const resumoData: (string | number)[][] = [];
+    
+    // Cabeçalho
+    resumoData.push(['RELATÓRIO DE ATIVIDADES - RDA']);
+    resumoData.push([`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`]);
+    resumoData.push([`Total de registros: ${activities.length}`]);
+    resumoData.push([]); // linha vazia
+    
+    // Cabeçalho da tabela
+    resumoData.push(['Data', 'Dia', 'Cód.', 'Obra', 'Fiscal', 'Contratada', 'Clima M/T/N', 'Pratic.', 'Efet.', 'Equip.', 'Atividades']);
+    
+    // Dados
+    activities.forEach((a) => {
+      resumoData.push([
+        a.data,
+        a.dia,
+        a.codigo || 'RD',
+        a.obra,
+        a.fiscal,
+        a.contratada,
+        `${a.condicaoManha || '-'}/${a.condicaoTarde || '-'}/${a.condicaoNoite || '-'}`,
+        a.praticavel ? 'SIM' : 'NÃO',
+        a.efetivoTotal,
+        a.equipamentos,
+        a.atividades,
+      ]);
+    });
+    
+    const resumoSheet = XLSX.utils.aoa_to_sheet(resumoData);
+    
+    // Merge para título
+    resumoSheet['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, // Título
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } }, // Gerado em
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } }, // Total
     ];
-    resumoSheet['!cols'] = resumoColWidths;
+    
+    resumoSheet['!cols'] = [
+      { wch: 12 }, { wch: 14 }, { wch: 6 }, { wch: 25 }, { wch: 40 },
+      { wch: 15 }, { wch: 16 }, { wch: 8 }, { wch: 6 }, { wch: 7 }, { wch: 80 },
+    ];
+    
     XLSX.utils.book_append_sheet(workbook, resumoSheet, 'Resumo');
     
-    // Aba Detalhado (todas as colunas)
-    const detalhadoSheet = XLSX.utils.json_to_sheet(detalhadoData);
-    const detalhadoColWidths = Object.keys(detalhadoData[0]).map((key) => ({
-      wch: Math.max(key.length, ...detalhadoData.map((row) => String(row[key as keyof typeof row] || '').length)),
-    }));
-    detalhadoSheet['!cols'] = detalhadoColWidths;
-    XLSX.utils.book_append_sheet(workbook, detalhadoSheet, 'Detalhado');
+    // ===== ABAS INDIVIDUAIS (igual páginas detalhadas do PDF) =====
+    activities.forEach((a, index) => {
+      const sheetData: (string | number)[][] = [];
+      
+      // Título
+      sheetData.push([`RDA - ${a.data} - ${a.obra}`]);
+      sheetData.push([]); // linha vazia
+      
+      // Info grid
+      sheetData.push(['Código:', a.codigo || 'RD', '', 'Área:', a.area || '-', '', 'CN:', a.cn || '-']);
+      sheetData.push(['Fiscal:', a.fiscal]);
+      sheetData.push(['Cliente:', a.cliente || '-', '', 'Contratada:', a.contratada]);
+      sheetData.push(['Dia:', a.dia]);
+      sheetData.push([]); // linha vazia
+      
+      // Condições de tempo
+      sheetData.push(['CONDIÇÕES DE TEMPO']);
+      sheetData.push(['Temperatura:', `${a.temperatura || '-'}ºC`, '', 'Manhã:', a.condicaoManha || '-', '', 'Tarde:', a.condicaoTarde || '-', '', 'Noite:', a.condicaoNoite || '-']);
+      sheetData.push(['Praticável:', a.praticavel ? 'SIM' : 'NÃO', '', 'Volume Chuva:', `${a.volumeChuva || 0}mm`]);
+      sheetData.push([]); // linha vazia
+      
+      // Efetivo
+      sheetData.push(['EFETIVO']);
+      if (a.efetivoDetalhado && a.efetivoDetalhado.length > 0) {
+        a.efetivoDetalhado.forEach((e) => {
+          sheetData.push([`• ${e.funcao}:`, e.quantidade]);
+        });
+      }
+      sheetData.push(['Total:', `${a.efetivoTotal} pessoas`]);
+      sheetData.push([]); // linha vazia
+      
+      // Equipamentos
+      sheetData.push(['EQUIPAMENTOS']);
+      if (a.equipamentosDetalhado && a.equipamentosDetalhado.length > 0) {
+        a.equipamentosDetalhado.forEach((e) => {
+          sheetData.push([`• ${e.equipamento}:`, e.quantidade]);
+        });
+      }
+      sheetData.push(['Total:', `${a.equipamentos} equipamentos`]);
+      sheetData.push([]); // linha vazia
+      
+      // Atividades
+      sheetData.push(['ATIVIDADES:']);
+      sheetData.push([a.atividades]);
+      sheetData.push([]); // linha vazia
+      
+      // Observações
+      if (a.observacoes && a.observacoes.trim()) {
+        sheetData.push(['OBSERVAÇÕES:']);
+        sheetData.push([a.observacoes]);
+        sheetData.push([]); // linha vazia
+      }
+      
+      // Ocorrências
+      if (a.ocorrencias && a.ocorrencias.trim()) {
+        sheetData.push(['OCORRÊNCIAS:']);
+        sheetData.push([a.ocorrencias]);
+        sheetData.push([]); // linha vazia
+      }
+      
+      // Localização (se existir)
+      if (a.localizacao) {
+        const loc = a.localizacao;
+        sheetData.push(['LOCALIZAÇÃO:']);
+        if (loc.kmInicial || loc.kmFinal) {
+          sheetData.push(['Km Inicial:', loc.kmInicial || '-', '', 'Km Final:', loc.kmFinal || '-']);
+        }
+        if (loc.estacaInicial || loc.estacaFinal) {
+          sheetData.push(['Estaca Inicial:', loc.estacaInicial || '-', '', 'Estaca Final:', loc.estacaFinal || '-']);
+        }
+        if (loc.lado) {
+          sheetData.push(['Lado:', loc.lado]);
+        }
+        if (loc.faixa) {
+          sheetData.push(['Faixa:', loc.faixa]);
+        }
+        sheetData.push([]); // linha vazia
+      }
+      
+      // Número da página
+      sheetData.push([`Página ${index + 2} de ${activities.length + 1}`]);
+      
+      const sheet = XLSX.utils.aoa_to_sheet(sheetData);
+      sheet['!cols'] = [
+        { wch: 15 }, { wch: 40 }, { wch: 3 }, { wch: 15 }, { wch: 30 },
+        { wch: 3 }, { wch: 10 }, { wch: 15 }, { wch: 3 }, { wch: 10 }, { wch: 15 },
+      ];
+      
+      // Nome da aba (máx 31 caracteres no Excel)
+      const sheetName = `${index + 1}-${a.data}`.substring(0, 31);
+      XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+    });
 
     const fileName = `RDAs-${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(workbook, fileName);
