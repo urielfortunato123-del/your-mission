@@ -26,6 +26,15 @@ export interface ServiceEntry {
   fiscal: string;
   obra: string;
   localizacao: string; // Frente de obra/local específico
+  // Campos de localização detalhada para memória de cálculo
+  kmInicial?: string;
+  kmFinal?: string;
+  estacaInicial?: string;
+  estacaFinal?: string;
+  faixa?: string;
+  lado?: 'E' | 'D' | 'EIXO' | '';
+  trecho?: string;
+  segmento?: string;
   observacoes?: string;
   createdAt: string;
 }

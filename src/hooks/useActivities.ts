@@ -41,6 +41,16 @@ export function useActivities() {
       efetivoDetalhado: activity.efetivoDetalhado || [],
       equipamentosDetalhado: activity.equipamentosDetalhado || [],
       ocorrencias: activity.ocorrencias || '',
+      localizacao: activity.localizacao || {
+        kmInicial: '',
+        kmFinal: '',
+        estacaInicial: '',
+        estacaFinal: '',
+        faixa: '',
+        lado: '',
+        trecho: '',
+        segmento: '',
+      },
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
@@ -97,6 +107,16 @@ export function useActivities() {
           efetivoDetalhado: newAct.efetivoDetalhado || [],
           equipamentosDetalhado: newAct.equipamentosDetalhado || [],
           ocorrencias: newAct.ocorrencias || '',
+          localizacao: newAct.localizacao || {
+            kmInicial: '',
+            kmFinal: '',
+            estacaInicial: '',
+            estacaFinal: '',
+            faixa: '',
+            lado: '',
+            trecho: '',
+            segmento: '',
+          },
         });
         added++;
       }

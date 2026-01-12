@@ -8,6 +8,17 @@ export interface EquipamentoItem {
   quantidade: number;
 }
 
+export interface Localizacao {
+  kmInicial?: string;
+  kmFinal?: string;
+  estacaInicial?: string;
+  estacaFinal?: string;
+  faixa?: string;
+  lado?: 'E' | 'D' | 'EIXO' | '';
+  trecho?: string;
+  segmento?: string;
+}
+
 export interface Activity {
   id: string;
   data: string;
@@ -16,7 +27,9 @@ export interface Activity {
   contratada: string;
   obra: string;
   frenteObra: string;
-  // Novos campos do modelo RDA
+  // Localização detalhada para memória de cálculo
+  localizacao?: Localizacao;
+  // Campos do modelo RDA
   area: string;
   codigo: string;
   cn: string;

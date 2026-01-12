@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, EfetivoItem, EquipamentoItem } from '@/types/activity';
+import { Activity, EfetivoItem, EquipamentoItem, Localizacao } from '@/types/activity';
 import { PriceItem, ServiceEntry } from '@/types/pricing';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { X, Save, Plus, Trash2, Calculator, Link2 } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
+import { LocalizacaoFields, formatLocalizacao } from './LocalizacaoFields';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +47,16 @@ const getDefaultFormData = (initialData?: Activity) => ({
   contratada: initialData?.contratada || '',
   obra: initialData?.obra || '',
   frenteObra: initialData?.frenteObra || '',
+  localizacao: initialData?.localizacao || {
+    kmInicial: '',
+    kmFinal: '',
+    estacaInicial: '',
+    estacaFinal: '',
+    faixa: '',
+    lado: '' as const,
+    trecho: '',
+    segmento: '',
+  },
   area: initialData?.area || '',
   codigo: initialData?.codigo || 'RD',
   cn: initialData?.cn || '',
@@ -192,7 +203,16 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
             contratada: formData.contratada,
             fiscal: formData.fiscal,
             obra: formData.obra,
-            localizacao: service.localizacao || formData.frenteObra || formData.area || '',
+            localizacao: service.localizacao || formatLocalizacao(formData.localizacao) || formData.frenteObra || formData.area || '',
+            // Campos de localização detalhada
+            kmInicial: formData.localizacao?.kmInicial || '',
+            kmFinal: formData.localizacao?.kmFinal || '',
+            estacaInicial: formData.localizacao?.estacaInicial || '',
+            estacaFinal: formData.localizacao?.estacaFinal || '',
+            faixa: formData.localizacao?.faixa || '',
+            lado: (formData.localizacao?.lado || '') as '' | 'E' | 'D' | 'EIXO',
+            trecho: formData.localizacao?.trecho || '',
+            segmento: formData.localizacao?.segmento || '',
             observacoes: '',
           };
         });
@@ -502,7 +522,11 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
             </div>
           </div>
 
-          {/* Condições de Tempo */}
+          {/* Localização Detalhada para Memória de Cálculo */}
+          <LocalizacaoFields
+            value={formData.localizacao}
+            onChange={(loc) => updateField('localizacao', loc)}
+          />
           <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
             <h3 className="font-semibold text-sm text-muted-foreground">CONDIÇÕES DE TEMPO</h3>
             
