@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { FileSpreadsheet, FileText, Filter } from 'lucide-react';
 import { Activity } from '@/types/activity';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -60,27 +60,96 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     setDialogOpen(false);
   };
 
-  const doExportToExcel = (activitiesToExport: Activity[]) => {
-    const workbook = XLSX.utils.book_new();
+  const doExportToExcel = async (activitiesToExport: Activity[]) => {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Sistema RDA';
+    workbook.created = new Date();
+
+    // Estilos padrão
+    const titleStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 16, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    };
+
+    const headerStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 10, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      border: {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } },
+      },
+    };
+
+    const cellBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FF000000' } },
+      bottom: { style: 'thin', color: { argb: 'FF000000' } },
+      left: { style: 'thin', color: { argb: 'FF000000' } },
+      right: { style: 'thin', color: { argb: 'FF000000' } },
+    };
+
+    const sectionHeaderStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 11 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } },
+    };
+
+    const labelStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 10 },
+    };
+
+    // ===== ABA RESUMO =====
+    const resumoSheet = workbook.addWorksheet('Resumo');
     
-    // ===== ABA RESUMO (igual primeira página do PDF) =====
-    const resumoData: (string | number)[][] = [];
-    
-    // Cabeçalho
-    resumoData.push(['RELATÓRIO DE ATIVIDADES - RDA']);
-    resumoData.push([`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`]);
-    resumoData.push([`Total de registros: ${activitiesToExport.length}`]);
+    // Larguras das colunas
+    resumoSheet.columns = [
+      { width: 12 }, { width: 14 }, { width: 8 }, { width: 25 }, { width: 40 },
+      { width: 15 }, { width: 18 }, { width: 10 }, { width: 8 }, { width: 8 }, { width: 60 },
+    ];
+
+    // Título
+    let rowNum = 1;
+    resumoSheet.mergeCells(`A${rowNum}:K${rowNum}`);
+    const titleCell = resumoSheet.getCell(`A${rowNum}`);
+    titleCell.value = 'RELATÓRIO DE ATIVIDADES - RDA';
+    titleCell.style = titleStyle;
+    resumoSheet.getRow(rowNum).height = 30;
+
+    rowNum++;
+    resumoSheet.mergeCells(`A${rowNum}:K${rowNum}`);
+    resumoSheet.getCell(`A${rowNum}`).value = `Gerado em: ${new Date().toLocaleDateString('pt-BR')}`;
+    resumoSheet.getCell(`A${rowNum}`).font = { italic: true };
+
+    rowNum++;
+    resumoSheet.mergeCells(`A${rowNum}:K${rowNum}`);
+    resumoSheet.getCell(`A${rowNum}`).value = `Total de registros: ${activitiesToExport.length}`;
+    resumoSheet.getCell(`A${rowNum}`).font = { bold: true };
+
     if (dataInicio || dataFim) {
-      resumoData.push([`Período: ${dataInicio || 'início'} até ${dataFim || 'fim'}`]);
+      rowNum++;
+      resumoSheet.mergeCells(`A${rowNum}:K${rowNum}`);
+      resumoSheet.getCell(`A${rowNum}`).value = `Período: ${dataInicio || 'início'} até ${dataFim || 'fim'}`;
     }
-    resumoData.push([]); // linha vazia
+
+    rowNum += 2;
     
     // Cabeçalho da tabela
-    resumoData.push(['Data', 'Dia', 'Cód.', 'Obra', 'Fiscal', 'Contratada', 'Clima M/T/N', 'Pratic.', 'Efet.', 'Equip.', 'Atividades']);
-    
+    const headers = ['Data', 'Dia', 'Cód.', 'Obra', 'Fiscal', 'Contratada', 'Clima M/T/N', 'Pratic.', 'Efet.', 'Equip.', 'Atividades'];
+    const headerRow = resumoSheet.getRow(rowNum);
+    headers.forEach((h, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = h;
+      cell.style = headerStyle;
+    });
+    headerRow.height = 20;
+
     // Dados
     activitiesToExport.forEach((a) => {
-      resumoData.push([
+      rowNum++;
+      const dataRow = resumoSheet.getRow(rowNum);
+      const values = [
         a.data,
         a.dia,
         a.codigo || 'RD',
@@ -91,125 +160,221 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
         a.praticavel ? 'SIM' : 'NÃO',
         a.efetivoTotal,
         a.equipamentos,
-        a.atividades,
-      ]);
-    });
-    
-    const resumoSheet = XLSX.utils.aoa_to_sheet(resumoData);
-    
-    // Merge para título
-    const mergeEnd = dataInicio || dataFim ? 3 : 2;
-    resumoSheet['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, // Título
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } }, // Gerado em
-      { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } }, // Total
-    ];
-    if (dataInicio || dataFim) {
-      resumoSheet['!merges'].push({ s: { r: 3, c: 0 }, e: { r: 3, c: 10 } }); // Período
-    }
-    
-    resumoSheet['!cols'] = [
-      { wch: 12 }, { wch: 14 }, { wch: 6 }, { wch: 25 }, { wch: 40 },
-      { wch: 15 }, { wch: 16 }, { wch: 8 }, { wch: 6 }, { wch: 7 }, { wch: 80 },
-    ];
-    
-    XLSX.utils.book_append_sheet(workbook, resumoSheet, 'Resumo');
-    
-    // ===== ABAS INDIVIDUAIS (igual páginas detalhadas do PDF) =====
-    activitiesToExport.forEach((a, index) => {
-      const sheetData: (string | number)[][] = [];
-      
-      // Título
-      sheetData.push([`RDA - ${a.data} - ${a.obra}`]);
-      sheetData.push([]); // linha vazia
-      
-      // Info grid
-      sheetData.push(['Código:', a.codigo || 'RD', '', 'Área:', a.area || '-', '', 'CN:', a.cn || '-']);
-      sheetData.push(['Fiscal:', a.fiscal]);
-      sheetData.push(['Cliente:', a.cliente || '-', '', 'Contratada:', a.contratada]);
-      sheetData.push(['Dia:', a.dia]);
-      sheetData.push([]); // linha vazia
-      
-      // Condições de tempo
-      sheetData.push(['CONDIÇÕES DE TEMPO']);
-      sheetData.push(['Temperatura:', `${a.temperatura || '-'}ºC`, '', 'Manhã:', a.condicaoManha || '-', '', 'Tarde:', a.condicaoTarde || '-', '', 'Noite:', a.condicaoNoite || '-']);
-      sheetData.push(['Praticável:', a.praticavel ? 'SIM' : 'NÃO', '', 'Volume Chuva:', `${a.volumeChuva || 0}mm`]);
-      sheetData.push([]); // linha vazia
-      
-      // Efetivo
-      sheetData.push(['EFETIVO']);
-      if (a.efetivoDetalhado && a.efetivoDetalhado.length > 0) {
-        a.efetivoDetalhado.forEach((e) => {
-          sheetData.push([`• ${e.funcao}:`, e.quantidade]);
-        });
-      }
-      sheetData.push(['Total:', `${a.efetivoTotal} pessoas`]);
-      sheetData.push([]); // linha vazia
-      
-      // Equipamentos
-      sheetData.push(['EQUIPAMENTOS']);
-      if (a.equipamentosDetalhado && a.equipamentosDetalhado.length > 0) {
-        a.equipamentosDetalhado.forEach((e) => {
-          sheetData.push([`• ${e.equipamento}:`, e.quantidade]);
-        });
-      }
-      sheetData.push(['Total:', `${a.equipamentos} equipamentos`]);
-      sheetData.push([]); // linha vazia
-      
-      // Atividades
-      sheetData.push(['ATIVIDADES:']);
-      sheetData.push([a.atividades]);
-      sheetData.push([]); // linha vazia
-      
-      // Observações
-      if (a.observacoes && a.observacoes.trim()) {
-        sheetData.push(['OBSERVAÇÕES:']);
-        sheetData.push([a.observacoes]);
-        sheetData.push([]); // linha vazia
-      }
-      
-      // Ocorrências
-      if (a.ocorrencias && a.ocorrencias.trim()) {
-        sheetData.push(['OCORRÊNCIAS:']);
-        sheetData.push([a.ocorrencias]);
-        sheetData.push([]); // linha vazia
-      }
-      
-      // Localização (se existir)
-      if (a.localizacao) {
-        const loc = a.localizacao;
-        sheetData.push(['LOCALIZAÇÃO:']);
-        if (loc.kmInicial || loc.kmFinal) {
-          sheetData.push(['Km Inicial:', loc.kmInicial || '-', '', 'Km Final:', loc.kmFinal || '-']);
-        }
-        if (loc.estacaInicial || loc.estacaFinal) {
-          sheetData.push(['Estaca Inicial:', loc.estacaInicial || '-', '', 'Estaca Final:', loc.estacaFinal || '-']);
-        }
-        if (loc.lado) {
-          sheetData.push(['Lado:', loc.lado]);
-        }
-        if (loc.faixa) {
-          sheetData.push(['Faixa:', loc.faixa]);
-        }
-        sheetData.push([]); // linha vazia
-      }
-      
-      // Número da página
-      sheetData.push([`Página ${index + 2} de ${activitiesToExport.length + 1}`]);
-      
-      const sheet = XLSX.utils.aoa_to_sheet(sheetData);
-      sheet['!cols'] = [
-        { wch: 15 }, { wch: 40 }, { wch: 3 }, { wch: 15 }, { wch: 30 },
-        { wch: 3 }, { wch: 10 }, { wch: 15 }, { wch: 3 }, { wch: 10 }, { wch: 15 },
+        a.atividades.length > 100 ? a.atividades.substring(0, 100) + '...' : a.atividades,
       ];
-      
-      // Nome da aba (máx 31 caracteres no Excel)
-      const sheetName = `${index + 1}-${a.data}`.substring(0, 31);
-      XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
+      values.forEach((v, i) => {
+        const cell = dataRow.getCell(i + 1);
+        cell.value = v;
+        cell.border = cellBorder;
+        cell.alignment = { vertical: 'middle', wrapText: true };
+      });
     });
 
-    const fileName = `RDAs-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+    // ===== ABAS INDIVIDUAIS =====
+    activitiesToExport.forEach((a, index) => {
+      const sheetName = `${index + 1}-${a.data}`.substring(0, 31);
+      const sheet = workbook.addWorksheet(sheetName);
+      
+      sheet.columns = [
+        { width: 15 }, { width: 35 }, { width: 5 }, { width: 15 }, { width: 30 },
+        { width: 5 }, { width: 12 }, { width: 20 }, { width: 5 }, { width: 12 }, { width: 20 },
+      ];
+
+      let row = 1;
+
+      // Título
+      sheet.mergeCells(`A${row}:K${row}`);
+      const titleCell = sheet.getCell(`A${row}`);
+      titleCell.value = `RDA - ${a.data} - ${a.obra}`;
+      titleCell.style = titleStyle;
+      sheet.getRow(row).height = 28;
+
+      row += 2;
+
+      // Info grid
+      sheet.getCell(`A${row}`).value = 'Código:';
+      sheet.getCell(`A${row}`).style = labelStyle;
+      sheet.getCell(`B${row}`).value = a.codigo || 'RD';
+      sheet.getCell(`D${row}`).value = 'Área:';
+      sheet.getCell(`D${row}`).style = labelStyle;
+      sheet.getCell(`E${row}`).value = a.area || '-';
+      sheet.getCell(`G${row}`).value = 'CN:';
+      sheet.getCell(`G${row}`).style = labelStyle;
+      sheet.getCell(`H${row}`).value = a.cn || '-';
+
+      row++;
+      sheet.getCell(`A${row}`).value = 'Fiscal:';
+      sheet.getCell(`A${row}`).style = labelStyle;
+      sheet.mergeCells(`B${row}:E${row}`);
+      sheet.getCell(`B${row}`).value = a.fiscal;
+
+      row++;
+      sheet.getCell(`A${row}`).value = 'Cliente:';
+      sheet.getCell(`A${row}`).style = labelStyle;
+      sheet.getCell(`B${row}`).value = a.cliente || '-';
+      sheet.getCell(`D${row}`).value = 'Contratada:';
+      sheet.getCell(`D${row}`).style = labelStyle;
+      sheet.getCell(`E${row}`).value = a.contratada;
+
+      row++;
+      sheet.getCell(`A${row}`).value = 'Dia:';
+      sheet.getCell(`A${row}`).style = labelStyle;
+      sheet.getCell(`B${row}`).value = a.dia;
+
+      row += 2;
+
+      // Condições de tempo
+      sheet.mergeCells(`A${row}:K${row}`);
+      sheet.getCell(`A${row}`).value = 'CONDIÇÕES DE TEMPO';
+      sheet.getCell(`A${row}`).style = sectionHeaderStyle;
+      sheet.getRow(row).height = 20;
+
+      row++;
+      sheet.getCell(`A${row}`).value = 'Temperatura:';
+      sheet.getCell(`A${row}`).style = labelStyle;
+      sheet.getCell(`B${row}`).value = `${a.temperatura || '-'}ºC`;
+      sheet.getCell(`D${row}`).value = 'Manhã:';
+      sheet.getCell(`D${row}`).style = labelStyle;
+      sheet.getCell(`E${row}`).value = a.condicaoManha || '-';
+      sheet.getCell(`G${row}`).value = 'Tarde:';
+      sheet.getCell(`G${row}`).style = labelStyle;
+      sheet.getCell(`H${row}`).value = a.condicaoTarde || '-';
+      sheet.getCell(`J${row}`).value = 'Noite:';
+      sheet.getCell(`J${row}`).style = labelStyle;
+      sheet.getCell(`K${row}`).value = a.condicaoNoite || '-';
+
+      row++;
+      sheet.getCell(`A${row}`).value = 'Praticável:';
+      sheet.getCell(`A${row}`).style = labelStyle;
+      sheet.getCell(`B${row}`).value = a.praticavel ? 'SIM' : 'NÃO';
+      sheet.getCell(`D${row}`).value = 'Volume Chuva:';
+      sheet.getCell(`D${row}`).style = labelStyle;
+      sheet.getCell(`E${row}`).value = `${a.volumeChuva || 0}mm`;
+
+      row += 2;
+
+      // Efetivo
+      sheet.mergeCells(`A${row}:E${row}`);
+      sheet.getCell(`A${row}`).value = 'EFETIVO';
+      sheet.getCell(`A${row}`).style = {
+        ...sectionHeaderStyle,
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F5FF' } },
+      };
+
+      if (a.efetivoDetalhado && a.efetivoDetalhado.length > 0) {
+        a.efetivoDetalhado.forEach((e) => {
+          row++;
+          sheet.getCell(`A${row}`).value = `• ${e.funcao}:`;
+          sheet.getCell(`B${row}`).value = e.quantidade;
+        });
+      }
+      row++;
+      sheet.getCell(`A${row}`).value = 'Total:';
+      sheet.getCell(`A${row}`).style = labelStyle;
+      sheet.getCell(`B${row}`).value = `${a.efetivoTotal} pessoas`;
+
+      row += 2;
+
+      // Equipamentos
+      sheet.mergeCells(`A${row}:E${row}`);
+      sheet.getCell(`A${row}`).value = 'EQUIPAMENTOS';
+      sheet.getCell(`A${row}`).style = {
+        ...sectionHeaderStyle,
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF5E6' } },
+      };
+
+      if (a.equipamentosDetalhado && a.equipamentosDetalhado.length > 0) {
+        a.equipamentosDetalhado.forEach((e) => {
+          row++;
+          sheet.getCell(`A${row}`).value = `• ${e.equipamento}:`;
+          sheet.getCell(`B${row}`).value = e.quantidade;
+        });
+      }
+      row++;
+      sheet.getCell(`A${row}`).value = 'Total:';
+      sheet.getCell(`A${row}`).style = labelStyle;
+      sheet.getCell(`B${row}`).value = `${a.equipamentos} equipamentos`;
+
+      row += 2;
+
+      // Atividades
+      sheet.mergeCells(`A${row}:K${row}`);
+      sheet.getCell(`A${row}`).value = 'ATIVIDADES:';
+      sheet.getCell(`A${row}`).style = sectionHeaderStyle;
+
+      row++;
+      sheet.mergeCells(`A${row}:K${row}`);
+      sheet.getCell(`A${row}`).value = a.atividades;
+      sheet.getCell(`A${row}`).alignment = { wrapText: true, vertical: 'top' };
+      sheet.getRow(row).height = Math.max(30, Math.ceil(a.atividades.length / 100) * 15);
+
+      // Observações
+      if (a.observacoes && a.observacoes.trim()) {
+        row += 2;
+        sheet.mergeCells(`A${row}:K${row}`);
+        sheet.getCell(`A${row}`).value = 'OBSERVAÇÕES:';
+        sheet.getCell(`A${row}`).style = sectionHeaderStyle;
+
+        row++;
+        sheet.mergeCells(`A${row}:K${row}`);
+        sheet.getCell(`A${row}`).value = a.observacoes;
+        sheet.getCell(`A${row}`).alignment = { wrapText: true, vertical: 'top' };
+      }
+
+      // Ocorrências
+      if (a.ocorrencias && a.ocorrencias.trim()) {
+        row += 2;
+        sheet.mergeCells(`A${row}:K${row}`);
+        sheet.getCell(`A${row}`).value = 'OCORRÊNCIAS:';
+        sheet.getCell(`A${row}`).style = sectionHeaderStyle;
+
+        row++;
+        sheet.mergeCells(`A${row}:K${row}`);
+        sheet.getCell(`A${row}`).value = a.ocorrencias;
+        sheet.getCell(`A${row}`).alignment = { wrapText: true, vertical: 'top' };
+      }
+
+      // Localização
+      if (a.localizacao && (a.localizacao.kmInicial || a.localizacao.kmFinal || a.localizacao.estacaInicial)) {
+        row += 2;
+        sheet.mergeCells(`A${row}:K${row}`);
+        sheet.getCell(`A${row}`).value = 'LOCALIZAÇÃO:';
+        sheet.getCell(`A${row}`).style = sectionHeaderStyle;
+
+        const loc = a.localizacao;
+        if (loc.kmInicial || loc.kmFinal) {
+          row++;
+          sheet.getCell(`A${row}`).value = 'Km Inicial:';
+          sheet.getCell(`A${row}`).style = labelStyle;
+          sheet.getCell(`B${row}`).value = loc.kmInicial || '-';
+          sheet.getCell(`D${row}`).value = 'Km Final:';
+          sheet.getCell(`D${row}`).style = labelStyle;
+          sheet.getCell(`E${row}`).value = loc.kmFinal || '-';
+        }
+        if (loc.lado) {
+          row++;
+          sheet.getCell(`A${row}`).value = 'Lado:';
+          sheet.getCell(`A${row}`).style = labelStyle;
+          sheet.getCell(`B${row}`).value = loc.lado;
+        }
+      }
+
+      // Rodapé
+      row += 2;
+      sheet.getCell(`A${row}`).value = `Página ${index + 2} de ${activitiesToExport.length + 1}`;
+      sheet.getCell(`A${row}`).font = { italic: true, size: 9 };
+    });
+
+    // Gerar arquivo e baixar
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `RDAs-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
     toast.success('Exportado para Excel com sucesso!');
   };
 
