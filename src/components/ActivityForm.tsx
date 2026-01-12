@@ -75,6 +75,9 @@ const getDefaultFormData = (initialData?: Activity) => ({
   atividades: initialData?.atividades || '',
   observacoes: initialData?.observacoes || '',
   ocorrencias: initialData?.ocorrencias || '',
+  quantidadeVerificada: initialData?.quantidadeVerificada || '',
+  valorUnitario: initialData?.valorUnitario || '',
+  valorTotal: initialData?.valorTotal || '',
 });
 
 // Load cached form data
@@ -803,6 +806,43 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
               )}
             </div>
           )}
+
+          {/* Campos de Medição */}
+          <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/20 space-y-4">
+            <h3 className="font-semibold text-sm text-muted-foreground">MEDIÇÃO</h3>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="quantidadeVerificada">Quantidade Verificada</Label>
+                <Input
+                  id="quantidadeVerificada"
+                  value={formData.quantidadeVerificada}
+                  onChange={(e) => updateField('quantidadeVerificada', e.target.value)}
+                  placeholder="Ex: 279,20 toneladas"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="valorUnitario">Valor Unitário</Label>
+                <Input
+                  id="valorUnitario"
+                  value={formData.valorUnitario}
+                  onChange={(e) => updateField('valorUnitario', e.target.value)}
+                  placeholder="Ex: R$ 150,00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="valorTotal">Valor Total</Label>
+                <Input
+                  id="valorTotal"
+                  value={formData.valorTotal}
+                  onChange={(e) => updateField('valorTotal', e.target.value)}
+                  placeholder="Ex: R$ 41.880,00"
+                />
+              </div>
+            </div>
+          </div>
 
           {/* Observações e Ocorrências */}
           <div className="grid grid-cols-2 gap-4">
