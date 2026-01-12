@@ -30,7 +30,9 @@ const defaultLocalizacao: Localizacao = {
 export function LocalizacaoFields({ value, onChange, compact = false }: LocalizacaoFieldsProps) {
   // Ensure value is always defined with default values
   const safeValue = value || defaultLocalizacao;
-  
+
+  const CLEAR_SELECT_VALUE = "__clear__";
+
   const updateField = (field: keyof Localizacao, newValue: string) => {
     onChange({ ...safeValue, [field]: newValue });
   };
@@ -67,12 +69,15 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Lado</Label>
-          <Select value={safeValue.lado || ''} onValueChange={(v) => updateField('lado', v)}>
+          <Select
+            value={safeValue.lado || ''}
+            onValueChange={(v) => updateField('lado', v === CLEAR_SELECT_VALUE ? '' : v)}
+          >
             <SelectTrigger className="h-8 text-sm">
               <SelectValue placeholder="-" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">-</SelectItem>
+              <SelectItem value={CLEAR_SELECT_VALUE}>-</SelectItem>
               <SelectItem value="E">Esquerdo</SelectItem>
               <SelectItem value="D">Direito</SelectItem>
               <SelectItem value="EIXO">Eixo</SelectItem>
@@ -145,12 +150,15 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
 
         <div className="space-y-2">
           <Label htmlFor="lado">Lado</Label>
-          <Select value={safeValue.lado || ''} onValueChange={(v) => updateField('lado', v as Localizacao['lado'])}>
+          <Select
+            value={safeValue.lado || ''}
+            onValueChange={(v) => updateField('lado', v === CLEAR_SELECT_VALUE ? '' : (v as Localizacao['lado']))}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">-</SelectItem>
+              <SelectItem value={CLEAR_SELECT_VALUE}>-</SelectItem>
               <SelectItem value="E">Esquerdo (E)</SelectItem>
               <SelectItem value="D">Direito (D)</SelectItem>
               <SelectItem value="EIXO">Eixo</SelectItem>
