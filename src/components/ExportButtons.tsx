@@ -11,7 +11,25 @@ interface ExportButtonsProps {
 }
 
 export function ExportButtons({ activities }: ExportButtonsProps) {
-  const formatDataForExcel = () => {
+  // Formato resumido (igual ao PDF)
+  const formatDataForExcelResumo = () => {
+    return activities.map((a) => ({
+      'Data': a.data,
+      'Dia': a.dia,
+      'Cód.': a.codigo || 'RD',
+      'Obra': a.obra,
+      'Fiscal': a.fiscal,
+      'Contratada': a.contratada,
+      'Clima M/T/N': `${a.condicaoManha || '-'}/${a.condicaoTarde || '-'}/${a.condicaoNoite || '-'}`,
+      'Pratic.': a.praticavel ? 'SIM' : 'NÃO',
+      'Efet.': a.efetivoTotal,
+      'Equip.': a.equipamentos,
+      'Atividades': a.atividades,
+    }));
+  };
+
+  // Formato detalhado (todas as colunas)
+  const formatDataForExcelDetalhado = () => {
     return activities.map((a) => ({
       'Data': a.data,
       'Dia': a.dia,
@@ -45,16 +63,36 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
       return;
     }
 
-    const data = formatDataForExcel();
-    const worksheet = XLSX.utils.json_to_sheet(data);
+    const resumoData = formatDataForExcelResumo();
+    const detalhadoData = formatDataForExcelDetalhado();
+    
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'RDAs');
-
-    // Auto-size columns
-    const colWidths = Object.keys(data[0]).map((key) => ({
-      wch: Math.max(key.length, ...data.map((row) => String(row[key as keyof typeof row] || '').length)),
+    
+    // Aba Resumo (modelo igual ao PDF)
+    const resumoSheet = XLSX.utils.json_to_sheet(resumoData);
+    const resumoColWidths = [
+      { wch: 12 }, // Data
+      { wch: 14 }, // Dia
+      { wch: 6 },  // Cód.
+      { wch: 25 }, // Obra
+      { wch: 35 }, // Fiscal
+      { wch: 15 }, // Contratada
+      { wch: 16 }, // Clima M/T/N
+      { wch: 8 },  // Pratic.
+      { wch: 6 },  // Efet.
+      { wch: 7 },  // Equip.
+      { wch: 80 }, // Atividades
+    ];
+    resumoSheet['!cols'] = resumoColWidths;
+    XLSX.utils.book_append_sheet(workbook, resumoSheet, 'Resumo');
+    
+    // Aba Detalhado (todas as colunas)
+    const detalhadoSheet = XLSX.utils.json_to_sheet(detalhadoData);
+    const detalhadoColWidths = Object.keys(detalhadoData[0]).map((key) => ({
+      wch: Math.max(key.length, ...detalhadoData.map((row) => String(row[key as keyof typeof row] || '').length)),
     }));
-    worksheet['!cols'] = colWidths;
+    detalhadoSheet['!cols'] = detalhadoColWidths;
+    XLSX.utils.book_append_sheet(workbook, detalhadoSheet, 'Detalhado');
 
     const fileName = `RDAs-${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(workbook, fileName);
