@@ -100,6 +100,19 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
       font: { bold: true, size: 10 },
     };
 
+    const missingDataStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 10, color: { argb: 'FFFF0000' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    };
+
+    // Helper para verificar se tem dado e aplicar estilo vermelho se não tiver
+    const getMissingText = (value: string | number | undefined | null, placeholder: string): { value: string; isMissing: boolean } => {
+      if (value === undefined || value === null || value === '' || value === '-' || value === 0) {
+        return { value: placeholder, isMissing: true };
+      }
+      return { value: String(value), isMissing: false };
+    };
+
     // ===== ABA RESUMO =====
     const resumoSheet = workbook.addWorksheet('Resumo');
     
@@ -149,24 +162,40 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     activitiesToExport.forEach((a) => {
       rowNum++;
       const dataRow = resumoSheet.getRow(rowNum);
+      
+      // Verificar campos que podem estar faltando
+      const fiscalData = getMissingText(a.fiscal, 'SEM FISCAL');
+      const contratadaData = getMissingText(a.contratada, 'SEM CONTRATADA');
+      const climaManha = a.condicaoManha || '-';
+      const climaTarde = a.condicaoTarde || '-';
+      const climaNoite = a.condicaoNoite || '-';
+      const climaCompleto = `${climaManha}/${climaTarde}/${climaNoite}`;
+      const efetivoData = getMissingText(a.efetivoTotal, 'SEM INFO');
+      const equipData = getMissingText(a.equipamentos, 'SEM INFO');
+      const atividadesData = getMissingText(a.atividades, 'SEM ATIVIDADES');
+      
       const values = [
-        a.data,
-        a.dia,
-        a.codigo || 'RD',
-        a.obra,
-        a.fiscal,
-        a.contratada,
-        `${a.condicaoManha || '-'}/${a.condicaoTarde || '-'}/${a.condicaoNoite || '-'}`,
-        a.praticavel ? 'SIM' : 'NÃO',
-        a.efetivoTotal,
-        a.equipamentos,
-        a.atividades.length > 100 ? a.atividades.substring(0, 100) + '...' : a.atividades,
+        { value: a.data, isMissing: false },
+        { value: a.dia, isMissing: false },
+        { value: a.codigo || 'RD', isMissing: false },
+        { value: a.obra, isMissing: !a.obra },
+        fiscalData,
+        contratadaData,
+        { value: climaCompleto, isMissing: climaManha === '-' && climaTarde === '-' && climaNoite === '-' },
+        { value: a.praticavel ? 'SIM' : 'NÃO', isMissing: false },
+        efetivoData,
+        equipData,
+        { value: atividadesData.isMissing ? atividadesData.value : (a.atividades.length > 100 ? a.atividades.substring(0, 100) + '...' : a.atividades), isMissing: atividadesData.isMissing },
       ];
+      
       values.forEach((v, i) => {
         const cell = dataRow.getCell(i + 1);
-        cell.value = v;
+        cell.value = v.value;
         cell.border = cellBorder;
         cell.alignment = { vertical: 'middle', wrapText: true };
+        if (v.isMissing) {
+          cell.font = { bold: true, color: { argb: 'FFFF0000' } };
+        }
       });
     });
 
