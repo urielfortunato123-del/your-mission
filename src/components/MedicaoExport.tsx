@@ -21,7 +21,7 @@ import { FileDown, FileSpreadsheet, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -102,7 +102,7 @@ export function MedicaoExport({
     return Object.values(grouped).sort((a, b) => a.codigo.localeCompare(b.codigo));
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     const entries = getFilteredData();
     if (entries.length === 0) {
       toast.error('Nenhum dado para exportar com os filtros selecionados');
@@ -112,25 +112,114 @@ export function MedicaoExport({
     const grouped = groupByCode(entries);
     const total = grouped.reduce((sum, g) => sum + g.valorTotal, 0);
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Sistema RDA';
+    workbook.created = new Date();
 
-    // Header info
-    const headerData = [
-      [TEMPLATE_NAMES[config.template]],
-      [],
-      ['CONTRATANTE:', config.contratante || '-'],
-      ['CONTRATADA:', config.contratada || entries[0]?.contratada || '-'],
-      ['CONTRATO:', config.contrato || '-'],
-      ['MEDIÇÃO Nº:', config.medicaoNumero?.toString() || '1'],
-      ['PERÍODO:', `${formatDate(config.periodo.inicio || entries[0]?.data || '')} a ${formatDate(config.periodo.fim || entries[entries.length - 1]?.data || '')}`],
-      [],
+    // Estilos
+    const titleStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 16, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    };
+
+    const headerStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 10, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      border: {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } },
+      },
+    };
+
+    const cellBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FF000000' } },
+      bottom: { style: 'thin', color: { argb: 'FF000000' } },
+      left: { style: 'thin', color: { argb: 'FF000000' } },
+      right: { style: 'thin', color: { argb: 'FF000000' } },
+    };
+
+    const labelStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 10 },
+    };
+
+    const totalStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 12 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6FFE6' } },
+      border: cellBorder,
+    };
+
+    // ===== ABA MEDIÇÃO =====
+    const sheet = workbook.addWorksheet('Medição');
+    sheet.columns = [
+      { width: 8 },  // ITEM
+      { width: 14 }, // CÓDIGO
+      { width: 50 }, // DESCRIÇÃO
+      { width: 12 }, // UNIDADE
+      { width: 14 }, // QUANTIDADE
+      { width: 18 }, // PREÇO UNITÁRIO
+      { width: 18 }, // VALOR TOTAL
     ];
 
-    // Data table
-    const tableData = [
-      ['ITEM', 'CÓDIGO', 'DESCRIÇÃO DO SERVIÇO', 'UNIDADE', 'QUANTIDADE', 'PREÇO UNITÁRIO', 'VALOR TOTAL'],
-      ...grouped.map((item, idx) => [
+    let row = 1;
+
+    // Título
+    sheet.mergeCells(`A${row}:G${row}`);
+    const titleCell = sheet.getCell(`A${row}`);
+    titleCell.value = TEMPLATE_NAMES[config.template];
+    titleCell.style = titleStyle;
+    sheet.getRow(row).height = 30;
+
+    row += 2;
+
+    // Info header
+    sheet.getCell(`A${row}`).value = 'CONTRATANTE:';
+    sheet.getCell(`A${row}`).style = labelStyle;
+    sheet.mergeCells(`B${row}:G${row}`);
+    sheet.getCell(`B${row}`).value = config.contratante || '-';
+    row++;
+
+    sheet.getCell(`A${row}`).value = 'CONTRATADA:';
+    sheet.getCell(`A${row}`).style = labelStyle;
+    sheet.mergeCells(`B${row}:G${row}`);
+    sheet.getCell(`B${row}`).value = config.contratada || entries[0]?.contratada || '-';
+    row++;
+
+    sheet.getCell(`A${row}`).value = 'CONTRATO:';
+    sheet.getCell(`A${row}`).style = labelStyle;
+    sheet.mergeCells(`B${row}:G${row}`);
+    sheet.getCell(`B${row}`).value = config.contrato || '-';
+    row++;
+
+    sheet.getCell(`A${row}`).value = 'MEDIÇÃO Nº:';
+    sheet.getCell(`A${row}`).style = labelStyle;
+    sheet.getCell(`B${row}`).value = config.medicaoNumero || 1;
+    row++;
+
+    sheet.getCell(`A${row}`).value = 'PERÍODO:';
+    sheet.getCell(`A${row}`).style = labelStyle;
+    sheet.mergeCells(`B${row}:G${row}`);
+    sheet.getCell(`B${row}`).value = `${formatDate(config.periodo.inicio || entries[0]?.data || '')} a ${formatDate(config.periodo.fim || entries[entries.length - 1]?.data || '')}`;
+    row += 2;
+
+    // Cabeçalho da tabela
+    const headers = ['ITEM', 'CÓDIGO', 'DESCRIÇÃO DO SERVIÇO', 'UNIDADE', 'QTD', 'PREÇO UNIT.', 'VALOR TOTAL'];
+    const headerRow = sheet.getRow(row);
+    headers.forEach((h, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = h;
+      cell.style = headerStyle;
+    });
+    headerRow.height = 22;
+    row++;
+
+    // Dados
+    grouped.forEach((item, idx) => {
+      const dataRow = sheet.getRow(row);
+      const values = [
         idx + 1,
         item.codigo,
         item.descricao,
@@ -138,31 +227,50 @@ export function MedicaoExport({
         item.quantidade,
         item.precoUnitario,
         item.valorTotal,
-      ]),
-      [],
-      ['', '', '', '', '', 'TOTAL:', total],
+      ];
+      values.forEach((v, i) => {
+        const cell = dataRow.getCell(i + 1);
+        cell.value = v;
+        cell.border = cellBorder;
+        cell.alignment = { vertical: 'middle', wrapText: i === 2 };
+        if (i >= 4) {
+          cell.numFmt = i === 4 ? '#,##0.00' : 'R$ #,##0.00';
+        }
+      });
+      row++;
+    });
+
+    // Total
+    row++;
+    sheet.mergeCells(`A${row}:E${row}`);
+    sheet.getCell(`F${row}`).value = 'TOTAL:';
+    sheet.getCell(`F${row}`).style = totalStyle;
+    sheet.getCell(`G${row}`).value = total;
+    sheet.getCell(`G${row}`).style = totalStyle;
+    sheet.getCell(`G${row}`).numFmt = 'R$ #,##0.00';
+
+    // ===== ABA DETALHADO =====
+    const detailSheet = workbook.addWorksheet('Detalhado');
+    detailSheet.columns = [
+      { width: 12 }, { width: 12 }, { width: 40 }, { width: 12 }, { width: 12 }, { width: 12 },
+      { width: 10 }, { width: 10 }, { width: 8 }, { width: 6 }, { width: 12 }, { width: 8 },
+      { width: 14 }, { width: 14 }, { width: 22 },
     ];
 
-    const allData = [...headerData, ...tableData];
-    const ws = XLSX.utils.aoa_to_sheet(allData);
+    // Cabeçalho detalhado
+    const detailHeaders = ['DATA', 'CÓDIGO', 'DESCRIÇÃO', 'TRECHO', 'KM INI', 'KM FIM', 'EST INI', 'EST FIM', 'FAIXA', 'LADO', 'QTD', 'UNID', 'P.UNIT', 'TOTAL', 'FISCAL'];
+    const detailHeaderRow = detailSheet.getRow(1);
+    detailHeaders.forEach((h, i) => {
+      const cell = detailHeaderRow.getCell(i + 1);
+      cell.value = h;
+      cell.style = headerStyle;
+    });
+    detailHeaderRow.height = 22;
 
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 6 },  // ITEM
-      { wch: 12 }, // CÓDIGO
-      { wch: 50 }, // DESCRIÇÃO
-      { wch: 10 }, // UNIDADE
-      { wch: 12 }, // QUANTIDADE
-      { wch: 15 }, // PREÇO UNITÁRIO
-      { wch: 15 }, // VALOR TOTAL
-    ];
-
-    XLSX.utils.book_append_sheet(wb, ws, 'Medição');
-
-    // Detailed entries sheet with location details
-    const detailData = [
-      ['DATA', 'CÓDIGO', 'DESCRIÇÃO', 'TRECHO', 'KM INICIAL', 'KM FINAL', 'ESTACA INI', 'ESTACA FIM', 'FAIXA', 'LADO', 'QTD', 'UNIDADE', 'P.UNIT', 'TOTAL', 'FISCAL'],
-      ...entries.map(e => [
+    // Dados detalhados
+    entries.forEach((e, idx) => {
+      const dataRow = detailSheet.getRow(idx + 2);
+      const values = [
         formatDate(e.data),
         e.codigo,
         e.descricao,
@@ -178,19 +286,29 @@ export function MedicaoExport({
         e.precoUnitario,
         e.valorTotal,
         e.fiscal,
-      ]),
-    ];
-    const wsDetail = XLSX.utils.aoa_to_sheet(detailData);
-    wsDetail['!cols'] = [
-      { wch: 12 }, { wch: 12 }, { wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-      { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 6 }, { wch: 10 }, { wch: 8 },
-      { wch: 12 }, { wch: 12 }, { wch: 20 },
-    ];
-    XLSX.utils.book_append_sheet(wb, wsDetail, 'Detalhado');
+      ];
+      values.forEach((v, i) => {
+        const cell = dataRow.getCell(i + 1);
+        cell.value = v;
+        cell.border = cellBorder;
+        cell.alignment = { vertical: 'middle', wrapText: i === 2 };
+        if (i === 12 || i === 13) {
+          cell.numFmt = 'R$ #,##0.00';
+        }
+      });
+    });
 
     // Download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
     const fileName = `medicao_${config.template}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+    
     toast.success(`Arquivo ${fileName} exportado!`);
   };
 
