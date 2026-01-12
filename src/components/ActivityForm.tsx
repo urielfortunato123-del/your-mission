@@ -817,7 +817,17 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
                 <Input
                   id="quantidadeVerificada"
                   value={formData.quantidadeVerificada}
-                  onChange={(e) => updateField('quantidadeVerificada', e.target.value)}
+                  onChange={(e) => {
+                    const newQtd = e.target.value;
+                    updateField('quantidadeVerificada', newQtd);
+                    // Calcular valor total automaticamente
+                    const qtdNum = parseFloat(newQtd.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+                    const valorNum = parseFloat(formData.valorUnitario.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+                    if (qtdNum > 0 && valorNum > 0) {
+                      const total = qtdNum * valorNum;
+                      updateField('valorTotal', `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                    }
+                  }}
                   placeholder="Ex: 279,20 toneladas"
                 />
               </div>
@@ -827,19 +837,31 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
                 <Input
                   id="valorUnitario"
                   value={formData.valorUnitario}
-                  onChange={(e) => updateField('valorUnitario', e.target.value)}
+                  onChange={(e) => {
+                    const newValor = e.target.value;
+                    updateField('valorUnitario', newValor);
+                    // Calcular valor total automaticamente
+                    const qtdNum = parseFloat(formData.quantidadeVerificada.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+                    const valorNum = parseFloat(newValor.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+                    if (qtdNum > 0 && valorNum > 0) {
+                      const total = qtdNum * valorNum;
+                      updateField('valorTotal', `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                    }
+                  }}
                   placeholder="Ex: R$ 150,00"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="valorTotal">Valor Total</Label>
+                <Label htmlFor="valorTotal">Valor Total (automático)</Label>
                 <Input
                   id="valorTotal"
                   value={formData.valorTotal}
                   onChange={(e) => updateField('valorTotal', e.target.value)}
-                  placeholder="Ex: R$ 41.880,00"
+                  placeholder="Calculado automaticamente"
+                  className="bg-muted/50"
                 />
+                <p className="text-xs text-muted-foreground">Qtd × Valor Unit.</p>
               </div>
             </div>
           </div>
