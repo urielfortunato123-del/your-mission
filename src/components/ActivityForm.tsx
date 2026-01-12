@@ -135,7 +135,16 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
         // New activity - check for cached data
         const cached = loadCachedFormData();
         if (cached) {
-          setFormData(cached);
+          // Merge cache with defaults to avoid crashes when we add new fields
+          const defaults = getDefaultFormData();
+          setFormData({
+            ...defaults,
+            ...cached,
+            localizacao: {
+              ...defaults.localizacao,
+              ...(cached.localizacao || {}),
+            },
+          });
           setHasCachedData(true);
           toast.info('Dados recuperados do rascunho anterior', {
             action: {
