@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, EfetivoItem, EquipamentoItem, Localizacao } from '@/types/activity';
+import { Activity, EfetivoItem, EquipamentoItem, Localizacao, MedicaoManual } from '@/types/activity';
 import { PriceItem, ServiceEntry } from '@/types/pricing';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { MatchCorrector, getMatchSuggestion } from './MatchCorrector';
+import { MedicaoManualSection } from './MedicaoManualSection';
 
 interface ActivityFormProps {
   open: boolean;
@@ -78,6 +79,7 @@ const getDefaultFormData = (initialData?: Activity) => ({
   quantidadeVerificada: initialData?.quantidadeVerificada || '',
   valorUnitario: initialData?.valorUnitario || '',
   valorTotal: initialData?.valorTotal || '',
+  medicoesManual: initialData?.medicoesManual || [],
 });
 
 // Load cached form data
@@ -810,6 +812,12 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
           {/* Campos de Medição */}
           <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/20 space-y-4">
             <h3 className="font-semibold text-sm text-muted-foreground">MEDIÇÃO</h3>
+            
+            {/* Entrada Manual de Medições */}
+            <MedicaoManualSection 
+              medicoes={formData.medicoesManual}
+              onMedicoesChange={(medicoes) => updateField('medicoesManual', medicoes)}
+            />
             
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
