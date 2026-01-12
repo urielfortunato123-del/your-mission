@@ -1,5 +1,9 @@
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { FileSpreadsheet, FileText } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { FileSpreadsheet, FileText, Filter } from 'lucide-react';
 import { Activity } from '@/types/activity';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -11,58 +15,52 @@ interface ExportButtonsProps {
 }
 
 export function ExportButtons({ activities }: ExportButtonsProps) {
-  // Formato resumido (igual ao PDF)
-  const formatDataForExcelResumo = () => {
-    return activities.map((a) => ({
-      'Data': a.data,
-      'Dia': a.dia,
-      'Cód.': a.codigo || 'RD',
-      'Obra': a.obra,
-      'Fiscal': a.fiscal,
-      'Contratada': a.contratada,
-      'Clima M/T/N': `${a.condicaoManha || '-'}/${a.condicaoTarde || '-'}/${a.condicaoNoite || '-'}`,
-      'Pratic.': a.praticavel ? 'SIM' : 'NÃO',
-      'Efet.': a.efetivoTotal,
-      'Equip.': a.equipamentos,
-      'Atividades': a.atividades,
-    }));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [exportType, setExportType] = useState<'excel' | 'pdf'>('excel');
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
+
+  // Filtrar atividades por período
+  const filteredActivities = useMemo(() => {
+    let filtered = [...activities];
+    
+    if (dataInicio) {
+      filtered = filtered.filter(a => a.data >= dataInicio);
+    }
+    if (dataFim) {
+      filtered = filtered.filter(a => a.data <= dataFim);
+    }
+    
+    return filtered;
+  }, [activities, dataInicio, dataFim]);
+
+  const openExportDialog = (type: 'excel' | 'pdf') => {
+    setExportType(type);
+    // Preencher com range das atividades
+    if (activities.length > 0) {
+      const sortedDates = activities.map(a => a.data).sort();
+      setDataInicio(sortedDates[0] || '');
+      setDataFim(sortedDates[sortedDates.length - 1] || '');
+    }
+    setDialogOpen(true);
   };
 
-  // Formato detalhado (todas as colunas)
-  const formatDataForExcelDetalhado = () => {
-    return activities.map((a) => ({
-      'Data': a.data,
-      'Dia': a.dia,
-      'Código': a.codigo || 'RD',
-      'Área': a.area || '',
-      'CN': a.cn || '',
-      'Obra': a.obra,
-      'Frente de Obra': a.frenteObra,
-      'Fiscal': a.fiscal,
-      'Cliente': a.cliente || '',
-      'Contratada': a.contratada,
-      'Temp. (ºC)': a.temperatura || '',
-      'Manhã': a.condicaoManha || '',
-      'Tarde': a.condicaoTarde || '',
-      'Noite': a.condicaoNoite || '',
-      'Praticável': a.praticavel ? 'SIM' : 'NÃO',
-      'Volume Chuva (mm)': a.volumeChuva || 0,
-      'Efetivo Detalhado': a.efetivoDetalhado?.map(e => `${e.funcao}: ${e.quantidade}`).join('; ') || '',
-      'Efetivo Total': a.efetivoTotal,
-      'Equipamentos Detalhado': a.equipamentosDetalhado?.map(e => `${e.equipamento}: ${e.quantidade}`).join('; ') || '',
-      'Equipamentos Total': a.equipamentos,
-      'Atividades': a.atividades,
-      'Observações': a.observacoes || '',
-      'Ocorrências': a.ocorrencias || '',
-    }));
-  };
-
-  const exportToExcel = () => {
-    if (activities.length === 0) {
-      toast.error('Nenhuma atividade para exportar.');
+  const handleExport = () => {
+    if (filteredActivities.length === 0) {
+      toast.error('Nenhuma atividade no período selecionado.');
       return;
     }
+    
+    if (exportType === 'excel') {
+      doExportToExcel(filteredActivities);
+    } else {
+      doExportToPDF(filteredActivities);
+    }
+    
+    setDialogOpen(false);
+  };
 
+  const doExportToExcel = (activitiesToExport: Activity[]) => {
     const workbook = XLSX.utils.book_new();
     
     // ===== ABA RESUMO (igual primeira página do PDF) =====
@@ -71,14 +69,17 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     // Cabeçalho
     resumoData.push(['RELATÓRIO DE ATIVIDADES - RDA']);
     resumoData.push([`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`]);
-    resumoData.push([`Total de registros: ${activities.length}`]);
+    resumoData.push([`Total de registros: ${activitiesToExport.length}`]);
+    if (dataInicio || dataFim) {
+      resumoData.push([`Período: ${dataInicio || 'início'} até ${dataFim || 'fim'}`]);
+    }
     resumoData.push([]); // linha vazia
     
     // Cabeçalho da tabela
     resumoData.push(['Data', 'Dia', 'Cód.', 'Obra', 'Fiscal', 'Contratada', 'Clima M/T/N', 'Pratic.', 'Efet.', 'Equip.', 'Atividades']);
     
     // Dados
-    activities.forEach((a) => {
+    activitiesToExport.forEach((a) => {
       resumoData.push([
         a.data,
         a.dia,
@@ -97,11 +98,15 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     const resumoSheet = XLSX.utils.aoa_to_sheet(resumoData);
     
     // Merge para título
+    const mergeEnd = dataInicio || dataFim ? 3 : 2;
     resumoSheet['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, // Título
       { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } }, // Gerado em
       { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } }, // Total
     ];
+    if (dataInicio || dataFim) {
+      resumoSheet['!merges'].push({ s: { r: 3, c: 0 }, e: { r: 3, c: 10 } }); // Período
+    }
     
     resumoSheet['!cols'] = [
       { wch: 12 }, { wch: 14 }, { wch: 6 }, { wch: 25 }, { wch: 40 },
@@ -111,7 +116,7 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     XLSX.utils.book_append_sheet(workbook, resumoSheet, 'Resumo');
     
     // ===== ABAS INDIVIDUAIS (igual páginas detalhadas do PDF) =====
-    activities.forEach((a, index) => {
+    activitiesToExport.forEach((a, index) => {
       const sheetData: (string | number)[][] = [];
       
       // Título
@@ -190,7 +195,7 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
       }
       
       // Número da página
-      sheetData.push([`Página ${index + 2} de ${activities.length + 1}`]);
+      sheetData.push([`Página ${index + 2} de ${activitiesToExport.length + 1}`]);
       
       const sheet = XLSX.utils.aoa_to_sheet(sheetData);
       sheet['!cols'] = [
@@ -208,12 +213,7 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     toast.success('Exportado para Excel com sucesso!');
   };
 
-  const exportToPDF = () => {
-    if (activities.length === 0) {
-      toast.error('Nenhuma atividade para exportar.');
-      return;
-    }
-
+  const doExportToPDF = (activitiesToExport: Activity[]) => {
     const doc = new jsPDF('landscape');
     
     // Title
@@ -222,10 +222,15 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     
     doc.setFontSize(10);
     doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 30);
-    doc.text(`Total de registros: ${activities.length}`, 14, 36);
+    doc.text(`Total de registros: ${activitiesToExport.length}`, 14, 36);
+    
+    let startY = 42;
+    if (dataInicio || dataFim) {
+      doc.text(`Período: ${dataInicio || 'início'} até ${dataFim || 'fim'}`, 14, 42);
+      startY = 48;
+    }
 
-    // Summary table with better column widths
-    const summaryTableData = activities.map((a) => [
+    const summaryTableData = activitiesToExport.map((a) => [
       a.data,
       a.dia,
       a.codigo || 'RD',
@@ -240,7 +245,7 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     ]);
 
     autoTable(doc, {
-      startY: 42,
+      startY,
       head: [[
         'Data',
         'Dia',
@@ -273,7 +278,7 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     });
 
     // Detailed pages for each activity
-    activities.forEach((a, index) => {
+    activitiesToExport.forEach((a, index) => {
       doc.addPage();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -459,7 +464,7 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
       // Page number
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Página ${index + 2} de ${activities.length + 1}`, pageWidth - 30, pageHeight - 10);
+      doc.text(`Página ${index + 2} de ${activitiesToExport.length + 1}`, pageWidth - 30, pageHeight - 10);
     });
 
     const fileName = `RDAs-${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -468,15 +473,74 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
   };
 
   return (
-    <div className="flex gap-2">
-      <Button variant="outline" size="sm" onClick={exportToExcel}>
-        <FileSpreadsheet className="h-4 w-4 mr-2" />
-        Excel
-      </Button>
-      <Button variant="outline" size="sm" onClick={exportToPDF}>
-        <FileText className="h-4 w-4 mr-2" />
-        PDF
-      </Button>
-    </div>
+    <>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={() => openExportDialog('excel')}>
+          <FileSpreadsheet className="h-4 w-4 mr-2" />
+          Excel
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => openExportDialog('pdf')}>
+          <FileText className="h-4 w-4 mr-2" />
+          PDF
+        </Button>
+      </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Exportar {exportType === 'excel' ? 'Excel' : 'PDF'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dataInicio">Data Início</Label>
+                <Input
+                  id="dataInicio"
+                  type="date"
+                  value={dataInicio}
+                  onChange={(e) => setDataInicio(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dataFim">Data Fim</Label>
+                <Input
+                  id="dataFim"
+                  type="date"
+                  value={dataFim}
+                  onChange={(e) => setDataFim(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              {filteredActivities.length} de {activities.length} atividades no período selecionado
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleExport} disabled={filteredActivities.length === 0}>
+              {exportType === 'excel' ? (
+                <>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Exportar Excel
+                </>
+              ) : (
+                <>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Exportar PDF
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
