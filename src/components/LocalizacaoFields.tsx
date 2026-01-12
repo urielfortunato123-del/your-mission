@@ -16,9 +16,23 @@ interface LocalizacaoFieldsProps {
   compact?: boolean;
 }
 
+const defaultLocalizacao: Localizacao = {
+  kmInicial: '',
+  kmFinal: '',
+  estacaInicial: '',
+  estacaFinal: '',
+  faixa: '',
+  lado: '',
+  trecho: '',
+  segmento: '',
+};
+
 export function LocalizacaoFields({ value, onChange, compact = false }: LocalizacaoFieldsProps) {
+  // Ensure value is always defined with default values
+  const safeValue = value || defaultLocalizacao;
+  
   const updateField = (field: keyof Localizacao, newValue: string) => {
-    onChange({ ...value, [field]: newValue });
+    onChange({ ...safeValue, [field]: newValue });
   };
 
   if (compact) {
@@ -27,7 +41,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
         <div className="space-y-1">
           <Label className="text-xs">Km Inicial</Label>
           <Input
-            value={value.kmInicial || ''}
+            value={safeValue.kmInicial || ''}
             onChange={(e) => updateField('kmInicial', e.target.value)}
             placeholder="Ex: 172+500"
             className="h-8 text-sm"
@@ -36,7 +50,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
         <div className="space-y-1">
           <Label className="text-xs">Km Final</Label>
           <Input
-            value={value.kmFinal || ''}
+            value={safeValue.kmFinal || ''}
             onChange={(e) => updateField('kmFinal', e.target.value)}
             placeholder="Ex: 173+200"
             className="h-8 text-sm"
@@ -45,7 +59,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
         <div className="space-y-1">
           <Label className="text-xs">Faixa</Label>
           <Input
-            value={value.faixa || ''}
+            value={safeValue.faixa || ''}
             onChange={(e) => updateField('faixa', e.target.value)}
             placeholder="Ex: 1, 2"
             className="h-8 text-sm"
@@ -53,7 +67,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Lado</Label>
-          <Select value={value.lado || ''} onValueChange={(v) => updateField('lado', v)}>
+          <Select value={safeValue.lado || ''} onValueChange={(v) => updateField('lado', v)}>
             <SelectTrigger className="h-8 text-sm">
               <SelectValue placeholder="-" />
             </SelectTrigger>
@@ -81,7 +95,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
           <Label htmlFor="kmInicial">Km Inicial</Label>
           <Input
             id="kmInicial"
-            value={value.kmInicial || ''}
+            value={safeValue.kmInicial || ''}
             onChange={(e) => updateField('kmInicial', e.target.value)}
             placeholder="Ex: 172+500"
           />
@@ -91,7 +105,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
           <Label htmlFor="kmFinal">Km Final</Label>
           <Input
             id="kmFinal"
-            value={value.kmFinal || ''}
+            value={safeValue.kmFinal || ''}
             onChange={(e) => updateField('kmFinal', e.target.value)}
             placeholder="Ex: 173+200"
           />
@@ -101,7 +115,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
           <Label htmlFor="estacaInicial">Estaca Inicial</Label>
           <Input
             id="estacaInicial"
-            value={value.estacaInicial || ''}
+            value={safeValue.estacaInicial || ''}
             onChange={(e) => updateField('estacaInicial', e.target.value)}
             placeholder="Ex: 1450"
           />
@@ -111,7 +125,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
           <Label htmlFor="estacaFinal">Estaca Final</Label>
           <Input
             id="estacaFinal"
-            value={value.estacaFinal || ''}
+            value={safeValue.estacaFinal || ''}
             onChange={(e) => updateField('estacaFinal', e.target.value)}
             placeholder="Ex: 1520"
           />
@@ -123,7 +137,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
           <Label htmlFor="faixa">Faixa</Label>
           <Input
             id="faixa"
-            value={value.faixa || ''}
+            value={safeValue.faixa || ''}
             onChange={(e) => updateField('faixa', e.target.value)}
             placeholder="Ex: 1, 2, Acost."
           />
@@ -131,7 +145,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
 
         <div className="space-y-2">
           <Label htmlFor="lado">Lado</Label>
-          <Select value={value.lado || ''} onValueChange={(v) => updateField('lado', v as Localizacao['lado'])}>
+          <Select value={safeValue.lado || ''} onValueChange={(v) => updateField('lado', v as Localizacao['lado'])}>
             <SelectTrigger>
               <SelectValue placeholder="Selecione" />
             </SelectTrigger>
@@ -148,7 +162,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
           <Label htmlFor="trecho">Trecho</Label>
           <Input
             id="trecho"
-            value={value.trecho || ''}
+            value={safeValue.trecho || ''}
             onChange={(e) => updateField('trecho', e.target.value)}
             placeholder="Ex: SP-079"
           />
@@ -158,7 +172,7 @@ export function LocalizacaoFields({ value, onChange, compact = false }: Localiza
           <Label htmlFor="segmento">Segmento</Label>
           <Input
             id="segmento"
-            value={value.segmento || ''}
+            value={safeValue.segmento || ''}
             onChange={(e) => updateField('segmento', e.target.value)}
             placeholder="Ex: Seg. 01"
           />
