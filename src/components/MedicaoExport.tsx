@@ -159,26 +159,32 @@ export function MedicaoExport({
 
     XLSX.utils.book_append_sheet(wb, ws, 'Medição');
 
-    // Detailed entries sheet
+    // Detailed entries sheet with location details
     const detailData = [
-      ['DATA', 'CÓDIGO', 'DESCRIÇÃO', 'LOCAL', 'QTD', 'UNIDADE', 'P.UNIT', 'TOTAL', 'FISCAL', 'CONTRATADA'],
+      ['DATA', 'CÓDIGO', 'DESCRIÇÃO', 'TRECHO', 'KM INICIAL', 'KM FINAL', 'ESTACA INI', 'ESTACA FIM', 'FAIXA', 'LADO', 'QTD', 'UNIDADE', 'P.UNIT', 'TOTAL', 'FISCAL'],
       ...entries.map(e => [
         formatDate(e.data),
         e.codigo,
         e.descricao,
-        e.localizacao,
+        e.trecho || '',
+        e.kmInicial || '',
+        e.kmFinal || '',
+        e.estacaInicial || '',
+        e.estacaFinal || '',
+        e.faixa || '',
+        e.lado || '',
         e.quantidade,
         e.unidade,
         e.precoUnitario,
         e.valorTotal,
         e.fiscal,
-        e.contratada,
       ]),
     ];
     const wsDetail = XLSX.utils.aoa_to_sheet(detailData);
     wsDetail['!cols'] = [
-      { wch: 12 }, { wch: 12 }, { wch: 40 }, { wch: 25 }, { wch: 10 },
-      { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 25 },
+      { wch: 12 }, { wch: 12 }, { wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 6 }, { wch: 10 }, { wch: 8 },
+      { wch: 12 }, { wch: 12 }, { wch: 20 },
     ];
     XLSX.utils.book_append_sheet(wb, wsDetail, 'Detalhado');
 

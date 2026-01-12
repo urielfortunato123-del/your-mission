@@ -178,12 +178,12 @@ export function ServiceEntriesManager({
                       <TableHead className="w-[90px]">Data</TableHead>
                       <TableHead className="w-[80px]">Código</TableHead>
                       <TableHead>Descrição</TableHead>
-                      <TableHead className="w-[100px] text-right">Qtd</TableHead>
-                      <TableHead className="w-[60px]">Un</TableHead>
-                      <TableHead className="w-[100px] text-right">P.Unit</TableHead>
-                      <TableHead className="w-[110px] text-right">Total</TableHead>
-                      <TableHead className="w-[120px]">Contratada</TableHead>
-                      <TableHead className="w-[60px]">Ação</TableHead>
+                      <TableHead className="w-[120px]">Localização</TableHead>
+                      <TableHead className="w-[80px] text-right">Qtd</TableHead>
+                      <TableHead className="w-[50px]">Un</TableHead>
+                      <TableHead className="w-[90px] text-right">P.Unit</TableHead>
+                      <TableHead className="w-[100px] text-right">Total</TableHead>
+                      <TableHead className="w-[50px]">Ação</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -197,31 +197,45 @@ export function ServiceEntriesManager({
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredEntries.map((entry) => (
-                        <TableRow key={entry.id}>
-                          <TableCell className="text-sm">{formatDate(entry.data)}</TableCell>
-                          <TableCell className="font-mono text-xs font-medium">{entry.codigo}</TableCell>
-                          <TableCell className="max-w-[180px] truncate text-sm" title={entry.descricao}>
-                            {entry.descricao}
-                          </TableCell>
-                          <TableCell className="text-right font-mono">{entry.quantidade.toLocaleString('pt-BR')}</TableCell>
-                          <TableCell className="text-muted-foreground">{entry.unidade}</TableCell>
-                          <TableCell className="text-right font-mono text-sm">{formatCurrency(entry.precoUnitario)}</TableCell>
-                          <TableCell className="text-right font-mono font-medium">{formatCurrency(entry.valorTotal)}</TableCell>
-                          <TableCell className="text-xs truncate max-w-[100px]" title={entry.contratada}>
-                            {entry.contratada}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => onDelete(entry.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      filteredEntries.map((entry) => {
+                        // Format location string
+                        const locParts: string[] = [];
+                        if (entry.trecho) locParts.push(entry.trecho);
+                        if (entry.kmInicial && entry.kmFinal) {
+                          locParts.push(`Km ${entry.kmInicial}-${entry.kmFinal}`);
+                        } else if (entry.kmInicial) {
+                          locParts.push(`Km ${entry.kmInicial}`);
+                        }
+                        if (entry.faixa) locParts.push(`Fx ${entry.faixa}`);
+                        if (entry.lado) locParts.push(entry.lado);
+                        const locString = locParts.length > 0 ? locParts.join(' ') : entry.localizacao;
+                        
+                        return (
+                          <TableRow key={entry.id}>
+                            <TableCell className="text-sm">{formatDate(entry.data)}</TableCell>
+                            <TableCell className="font-mono text-xs font-medium">{entry.codigo}</TableCell>
+                            <TableCell className="max-w-[160px] truncate text-sm" title={entry.descricao}>
+                              {entry.descricao}
+                            </TableCell>
+                            <TableCell className="text-xs truncate max-w-[120px]" title={locString}>
+                              {locString || '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">{entry.quantidade.toLocaleString('pt-BR')}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{entry.unidade}</TableCell>
+                            <TableCell className="text-right font-mono text-sm">{formatCurrency(entry.precoUnitario)}</TableCell>
+                            <TableCell className="text-right font-mono font-medium">{formatCurrency(entry.valorTotal)}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => onDelete(entry.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
