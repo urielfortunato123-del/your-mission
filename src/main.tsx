@@ -16,4 +16,12 @@ registerSW({
   },
 });
 
+// Log uncaught errors so we can debug "tela branca" issues
+window.addEventListener('error', (event) => {
+  console.error('[GlobalError] error event:', event.error ?? event.message, event);
+});
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[GlobalError] unhandledrejection:', event.reason, event);
+});
+
 createRoot(document.getElementById("root")!).render(<App />);

@@ -395,7 +395,13 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        // Only close when Radix requests closing (ESC/overlay/close button)
+        if (!nextOpen) onClose();
+      }}
+    >
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
