@@ -122,6 +122,8 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
     descricaoPlanilha: string | null;
     quantidade: number; 
     unidade: string; 
+    precoUnitario?: number;
+    valorTotal?: number;
     localizacao?: string;
     confiancaMatch?: string;
     matched: boolean 
@@ -243,6 +245,7 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
   };
 
   // Extract services from RDA text
+  // Extract services from RDA text - FILTRA POR CONTRATADA
   const extractServicesFromText = async () => {
     if (!formData.atividades) {
       toast.error('Preencha o campo de atividades primeiro');
@@ -254,16 +257,42 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
       return;
     }
 
+    // 🔥 FILTRAR ITENS DE PREÇO PELA CONTRATADA DO RDA
+    const contratadaRDA = formData.contratada?.trim().toUpperCase() || '';
+    const filteredPriceItems = contratadaRDA 
+      ? priceItems.filter(p => {
+          const contratadaItem = (p.contratada || '').toUpperCase();
+          // Match parcial para cobrir variações de nome
+          return contratadaItem.includes(contratadaRDA) || 
+                 contratadaRDA.includes(contratadaItem) ||
+                 // Normaliza nomes de empresa (remove LTDA, EPP, etc)
+                 contratadaItem.replace(/\s*(LTDA|EPP|ME|EIRELI|S\.?A\.?).*$/i, '').trim() === 
+                 contratadaRDA.replace(/\s*(LTDA|EPP|ME|EIRELI|S\.?A\.?).*$/i, '').trim();
+        })
+      : priceItems;
+
+    if (filteredPriceItems.length === 0) {
+      toast.error(`Nenhuma planilha de preços encontrada para "${formData.contratada}". Importe a BM dessa empresa primeiro.`);
+      return;
+    }
+
     setIsExtractingServices(true);
     try {
       const { data, error } = await supabase.functions.invoke('extract-services', {
         body: {
-          priceItems: priceItems.map(p => ({ codigo: p.codigo, descricao: p.descricao, unidade: p.unidade })),
+          priceItems: filteredPriceItems.map(p => ({ 
+            codigo: p.codigo, 
+            descricao: p.descricao, 
+            unidade: p.unidade,
+            precoUnitario: p.precoUnitario,
+            contratada: p.contratada 
+          })),
           activityContext: {
             atividades: formData.atividades,
             observacoes: formData.observacoes,
             obra: formData.obra,
             frenteObra: formData.frenteObra,
+            contratada: formData.contratada, // Passa contratada para a IA
           }
         }
       });
@@ -272,22 +301,34 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
 
       if (data?.data?.servicos && Array.isArray(data.data.servicos)) {
         const services = data.data.servicos.map((s: any) => {
-          // Check if AI found a match, or try learning from history
+          // Check if AI found a match - APENAS na planilha filtrada
           let codigo = s.codigo || '';
           let matched = false;
+          let precoUnitario = s.precoUnitario || 0;
           
           if (codigo) {
-            matched = priceItems.some(p => 
+            const matchedItem = filteredPriceItems.find(p => 
               p.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '') === codigo.toUpperCase().replace(/[^A-Z0-9]/g, '')
             );
+            matched = !!matchedItem;
+            if (matchedItem) {
+              precoUnitario = matchedItem.precoUnitario;
+            }
           }
           
           // If no match, try to find from learning history
           if (!matched && s.descricaoOriginal) {
             const suggestion = getMatchSuggestion(s.descricaoOriginal);
             if (suggestion) {
-              codigo = suggestion;
-              matched = true;
+              // Verifica se a sugestão está na planilha filtrada
+              const matchedItem = filteredPriceItems.find(p => 
+                p.codigo.toUpperCase().replace(/[^A-Z0-9]/g, '') === suggestion.toUpperCase().replace(/[^A-Z0-9]/g, '')
+              );
+              if (matchedItem) {
+                codigo = suggestion;
+                matched = true;
+                precoUnitario = matchedItem.precoUnitario;
+              }
             }
           }
           
@@ -297,6 +338,8 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
             descricaoPlanilha: s.descricaoPlanilha || null,
             quantidade: parseFloat(s.quantidade) || 0,
             unidade: s.unidade || 'un',
+            precoUnitario,
+            valorTotal: (parseFloat(s.quantidade) || 0) * precoUnitario,
             localizacao: s.localizacao || '',
             confiancaMatch: s.confiancaMatch || '',
             matched,
@@ -305,7 +348,7 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
         
         setExtractedServices(services);
         const matchedCount = services.filter((s: any) => s.matched).length;
-        toast.success(`${services.length} serviço(s) encontrado(s), ${matchedCount} com código na planilha`);
+        toast.success(`${services.length} serviço(s) encontrado(s), ${matchedCount} vinculado(s) à BM de ${formData.contratada || 'empresa'}`);
       } else {
         toast.info('Nenhum serviço quantificado encontrado no texto');
       }
