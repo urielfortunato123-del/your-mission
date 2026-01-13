@@ -27,6 +27,12 @@ export interface MedicaoManual {
   largura: string;
   altura: string;
   tonelada: string;
+  // Campos adicionais baseados no Excel
+  faixa: string;
+  sentido: string;
+  material: string;
+  responsavel: string;
+  descricao: string;
 }
 
 export interface Activity {
