@@ -397,11 +397,164 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
         }
       }
 
+      // Medições Manuais
+      if (a.medicoesManual && a.medicoesManual.length > 0) {
+        row += 2;
+        sheet.mergeCells(`A${row}:K${row}`);
+        sheet.getCell(`A${row}`).value = 'MEDIÇÕES MANUAIS:';
+        sheet.getCell(`A${row}`).style = {
+          ...sectionHeaderStyle,
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6FFE6' } },
+        };
+
+        // Cabeçalho da tabela de medições
+        row++;
+        const medicaoHeaders = ['Descrição', 'Km Inicial', 'Km Final', 'Distância', 'Largura', 'Altura', 'Área', 'Volume', 'Tonelada', 'Faixa', 'Sentido'];
+        medicaoHeaders.forEach((h, i) => {
+          const cell = sheet.getCell(row, i + 1);
+          cell.value = h;
+          cell.style = headerStyle;
+        });
+
+        // Dados das medições
+        a.medicoesManual.forEach((med) => {
+          row++;
+          const medicaoValues = [
+            med.descricao || '-',
+            med.kmInicial || '-',
+            med.kmFinal || '-',
+            med.distancia || '-',
+            med.largura || '-',
+            med.altura || '-',
+            med.area || '-',
+            med.volume || '-',
+            med.tonelada || '-',
+            med.faixa || '-',
+            med.sentido || '-',
+          ];
+          medicaoValues.forEach((v, i) => {
+            const cell = sheet.getCell(row, i + 1);
+            cell.value = v;
+            cell.border = cellBorder;
+            cell.alignment = { vertical: 'middle', wrapText: true };
+          });
+        });
+
+        // Totais das medições
+        row++;
+        const totalDistancia = a.medicoesManual.reduce((sum, m) => sum + (parseFloat(m.distancia?.replace(',', '.') || '0') || 0), 0);
+        const totalArea = a.medicoesManual.reduce((sum, m) => sum + (parseFloat(m.area?.replace(',', '.') || '0') || 0), 0);
+        const totalVolume = a.medicoesManual.reduce((sum, m) => sum + (parseFloat(m.volume?.replace(',', '.') || '0') || 0), 0);
+        const totalTonelada = a.medicoesManual.reduce((sum, m) => sum + (parseFloat(m.tonelada?.replace(',', '.') || '0') || 0), 0);
+        
+        sheet.getCell(row, 1).value = 'TOTAIS:';
+        sheet.getCell(row, 1).style = labelStyle;
+        sheet.getCell(row, 4).value = totalDistancia.toFixed(2).replace('.', ',');
+        sheet.getCell(row, 4).style = labelStyle;
+        sheet.getCell(row, 7).value = totalArea.toFixed(2).replace('.', ',');
+        sheet.getCell(row, 7).style = labelStyle;
+        sheet.getCell(row, 8).value = totalVolume.toFixed(2).replace('.', ',');
+        sheet.getCell(row, 8).style = labelStyle;
+        sheet.getCell(row, 9).value = totalTonelada.toFixed(2).replace('.', ',');
+        sheet.getCell(row, 9).style = labelStyle;
+      }
+
       // Rodapé
       row += 2;
       sheet.getCell(`A${row}`).value = `Página ${index + 2} de ${activitiesToExport.length + 1}`;
       sheet.getCell(`A${row}`).font = { italic: true, size: 9 };
     });
+
+    // ===== ABA DE MEDIÇÕES CONSOLIDADAS =====
+    const allMedicoes: Array<{ data: string; obra: string; medicao: typeof activitiesToExport[0]['medicoesManual'][0] }> = [];
+    activitiesToExport.forEach((a) => {
+      if (a.medicoesManual && a.medicoesManual.length > 0) {
+        a.medicoesManual.forEach((m) => {
+          allMedicoes.push({ data: a.data, obra: a.obra, medicao: m });
+        });
+      }
+    });
+
+    if (allMedicoes.length > 0) {
+      const medicoesSheet = workbook.addWorksheet('Medições');
+      
+      medicoesSheet.columns = [
+        { width: 12 }, { width: 25 }, { width: 30 }, { width: 12 }, { width: 12 },
+        { width: 10 }, { width: 10 }, { width: 10 }, { width: 12 }, { width: 12 },
+        { width: 10 }, { width: 10 }, { width: 15 }, { width: 15 },
+      ];
+
+      // Título
+      let medRow = 1;
+      medicoesSheet.mergeCells(`A${medRow}:N${medRow}`);
+      const medTitleCell = medicoesSheet.getCell(`A${medRow}`);
+      medTitleCell.value = 'CONSOLIDADO DE MEDIÇÕES MANUAIS';
+      medTitleCell.style = titleStyle;
+      medicoesSheet.getRow(medRow).height = 30;
+
+      medRow++;
+      medicoesSheet.getCell(`A${medRow}`).value = `Total de medições: ${allMedicoes.length}`;
+      medicoesSheet.getCell(`A${medRow}`).font = { bold: true };
+
+      medRow += 2;
+      
+      // Cabeçalho
+      const medHeaders = ['Data', 'Obra', 'Descrição', 'Km Inicial', 'Km Final', 'Distância', 'Largura', 'Altura', 'Área', 'Volume', 'Tonelada', 'Faixa', 'Sentido', 'Material'];
+      const medHeaderRow = medicoesSheet.getRow(medRow);
+      medHeaders.forEach((h, i) => {
+        const cell = medHeaderRow.getCell(i + 1);
+        cell.value = h;
+        cell.style = headerStyle;
+      });
+      medHeaderRow.height = 20;
+
+      // Dados
+      allMedicoes.forEach((item) => {
+        medRow++;
+        const med = item.medicao;
+        const values = [
+          item.data,
+          item.obra,
+          med.descricao || '-',
+          med.kmInicial || '-',
+          med.kmFinal || '-',
+          med.distancia || '-',
+          med.largura || '-',
+          med.altura || '-',
+          med.area || '-',
+          med.volume || '-',
+          med.tonelada || '-',
+          med.faixa || '-',
+          med.sentido || '-',
+          med.material || '-',
+        ];
+        values.forEach((v, i) => {
+          const cell = medicoesSheet.getCell(medRow, i + 1);
+          cell.value = v;
+          cell.border = cellBorder;
+          cell.alignment = { vertical: 'middle', wrapText: true };
+        });
+      });
+
+      // Linha de totais
+      medRow += 2;
+      medicoesSheet.getCell(medRow, 1).value = 'TOTAIS:';
+      medicoesSheet.getCell(medRow, 1).style = labelStyle;
+      
+      const totalDistancia = allMedicoes.reduce((sum, m) => sum + (parseFloat(m.medicao.distancia?.replace(',', '.') || '0') || 0), 0);
+      const totalArea = allMedicoes.reduce((sum, m) => sum + (parseFloat(m.medicao.area?.replace(',', '.') || '0') || 0), 0);
+      const totalVolume = allMedicoes.reduce((sum, m) => sum + (parseFloat(m.medicao.volume?.replace(',', '.') || '0') || 0), 0);
+      const totalTonelada = allMedicoes.reduce((sum, m) => sum + (parseFloat(m.medicao.tonelada?.replace(',', '.') || '0') || 0), 0);
+
+      medicoesSheet.getCell(medRow, 6).value = totalDistancia.toFixed(2).replace('.', ',');
+      medicoesSheet.getCell(medRow, 6).style = labelStyle;
+      medicoesSheet.getCell(medRow, 9).value = totalArea.toFixed(2).replace('.', ',');
+      medicoesSheet.getCell(medRow, 9).style = labelStyle;
+      medicoesSheet.getCell(medRow, 10).value = totalVolume.toFixed(2).replace('.', ',');
+      medicoesSheet.getCell(medRow, 10).style = labelStyle;
+      medicoesSheet.getCell(medRow, 11).value = totalTonelada.toFixed(2).replace('.', ',');
+      medicoesSheet.getCell(medRow, 11).style = labelStyle;
+    }
 
     // Gerar arquivo e baixar
     const buffer = await workbook.xlsx.writeBuffer();
