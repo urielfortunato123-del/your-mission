@@ -409,7 +409,7 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
 
         // Cabeçalho da tabela de medições
         row++;
-        const medicaoHeaders = ['Descrição', 'Km Inicial', 'Km Final', 'Distância', 'Largura', 'Altura', 'Área', 'Volume', 'Tonelada', 'Faixa', 'Sentido'];
+        const medicaoHeaders = ['Cód. BM', 'Descrição', 'Km Inicial', 'Km Final', 'Distância', 'Largura', 'Altura', 'Área', 'Volume', 'Tonelada', 'Faixa'];
         medicaoHeaders.forEach((h, i) => {
           const cell = sheet.getCell(row, i + 1);
           cell.value = h;
@@ -420,6 +420,7 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
         a.medicoesManual.forEach((med) => {
           row++;
           const medicaoValues = [
+            med.codigoServico || '-',
             med.descricao || '-',
             med.kmInicial || '-',
             med.kmFinal || '-',
@@ -430,13 +431,16 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
             med.volume || '-',
             med.tonelada || '-',
             med.faixa || '-',
-            med.sentido || '-',
           ];
           medicaoValues.forEach((v, i) => {
             const cell = sheet.getCell(row, i + 1);
             cell.value = v;
             cell.border = cellBorder;
             cell.alignment = { vertical: 'middle', wrapText: true };
+            // Destacar código BM em azul se existir
+            if (i === 0 && v !== '-') {
+              cell.font = { bold: true, color: { argb: 'FF2563EB' } };
+            }
           });
         });
 
