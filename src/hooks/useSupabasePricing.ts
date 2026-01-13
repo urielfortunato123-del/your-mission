@@ -477,8 +477,22 @@ export function useSupabasePricing() {
       throw new Error(`Limite de ${MAX_SHEETS_PER_CONTRATADA} planilhas por contratada atingido. Delete uma planilha antiga.`);
     }
 
+    // Sanitize file path for storage (remove special characters, accents, spaces)
+    const sanitizePath = (str: string): string => {
+      return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove accents
+        .replace(/[^a-zA-Z0-9_\-\.]/g, '_') // Replace special chars with underscore
+        .replace(/_+/g, '_') // Collapse multiple underscores
+        .replace(/^_|_$/g, '') // Trim underscores
+        .substring(0, 100); // Limit length
+    };
+
+    const sanitizedContratada = sanitizePath(detectedContratada || 'sem-contratada');
+    const sanitizedFileName = sanitizePath(file.name);
+    
     // Upload file to storage
-    const filePath = `${detectedContratada || 'sem-contratada'}/${Date.now()}-${file.name}`;
+    const filePath = `${sanitizedContratada}/${Date.now()}-${sanitizedFileName}`;
     const { error: uploadError } = await supabase.storage
       .from('price-sheets')
       .upload(filePath, file);
