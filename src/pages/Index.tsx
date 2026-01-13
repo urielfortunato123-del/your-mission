@@ -274,6 +274,7 @@ const Index = () => {
         initialData={editingActivity || undefined}
         priceItems={pricing.priceItems}
         onServicesExtracted={pricing.addServiceEntries}
+        onImportPriceSheet={pricing.importPriceSheet}
       />
 
       {/* Price Sheet Manager */}

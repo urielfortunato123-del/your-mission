@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Activity, EfetivoItem, EquipamentoItem, Localizacao, MedicaoManual } from '@/types/activity';
 import { PriceItem, ServiceEntry } from '@/types/pricing';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { X, Save, Plus, Trash2, Calculator, Link2 } from 'lucide-react';
+import { X, Save, Plus, Trash2, Calculator, Link2, Paperclip } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
 import { LocalizacaoFields, formatLocalizacao } from './LocalizacaoFields';
 import { toast } from 'sonner';
@@ -35,6 +35,7 @@ interface ActivityFormProps {
   initialData?: Activity;
   priceItems?: PriceItem[];
   onServicesExtracted?: (entries: Omit<ServiceEntry, 'id' | 'createdAt'>[]) => void;
+  onImportPriceSheet?: (file: File) => Promise<{ added: number; errors: string[]; contratada?: string; contrato?: string }>;
 }
 
 const WEATHER_OPTIONS = ['BOM', 'CHUVA', 'NUBLADO', 'CHUVISCO'];
@@ -113,7 +114,7 @@ const clearFormCache = () => {
   }
 };
 
-export function ActivityForm({ open, onClose, onSave, initialData, priceItems = [], onServicesExtracted }: ActivityFormProps) {
+export function ActivityForm({ open, onClose, onSave, initialData, priceItems = [], onServicesExtracted, onImportPriceSheet }: ActivityFormProps) {
   const [formData, setFormData] = useState(getDefaultFormData(initialData));
   const [hasCachedData, setHasCachedData] = useState(false);
   const [extractedServices, setExtractedServices] = useState<Array<{ 
@@ -131,6 +132,25 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
   const [isExtractingServices, setIsExtractingServices] = useState(false);
   const [matchCorrectorOpen, setMatchCorrectorOpen] = useState(false);
   const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
+  const [isImportingSheet, setIsImportingSheet] = useState(false);
+  
+  // File input ref for price sheet import
+  const priceSheetInputRef = useRef<HTMLInputElement>(null);
+  
+  const handlePriceSheetImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onImportPriceSheet) return;
+    
+    setIsImportingSheet(true);
+    try {
+      await onImportPriceSheet(file);
+    } catch (error) {
+      console.error('Erro ao importar planilha:', error);
+    } finally {
+      setIsImportingSheet(false);
+      e.target.value = '';
+    }
+  };
 
   useEffect(() => {
     if (open) {
@@ -853,10 +873,33 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
                           Nenhuma planilha BM encontrada para "{formData.contratada}"
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground pl-6">
-                        Para calcular os valores, importe a planilha de preços (BM) desta contratada no menu{' '}
-                        <strong>📊 Planilha de Preços</strong>
-                      </p>
+                      <div className="flex items-center gap-2 pl-6">
+                        <p className="text-xs text-muted-foreground flex-1">
+                          Para calcular os valores, importe a planilha de preços (BM) desta contratada
+                        </p>
+                        {onImportPriceSheet && (
+                          <>
+                            <input
+                              type="file"
+                              ref={priceSheetInputRef}
+                              onChange={handlePriceSheetImport}
+                              accept=".xlsx,.xls,.pdf"
+                              className="hidden"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => priceSheetInputRef.current?.click()}
+                              disabled={isImportingSheet}
+                              className="shrink-0"
+                            >
+                              <Paperclip className="h-4 w-4 mr-1" />
+                              {isImportingSheet ? 'Importando...' : 'Anexar Planilha'}
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 }
