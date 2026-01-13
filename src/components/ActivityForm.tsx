@@ -1096,6 +1096,8 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
               medicoes={formData.medicoesManual}
               onMedicoesChange={(medicoes) => updateField('medicoesManual', medicoes)}
               textoAtividade={formData.atividades}
+              priceItems={priceItems}
+              extractedServiceCodes={extractedServices.filter(s => s.matched).map(s => s.codigo)}
             />
             
             <div className="grid grid-cols-3 gap-4">
