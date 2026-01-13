@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { MedicaoManual } from '@/types/activity';
+import { PriceItem } from '@/types/pricing';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, Sparkles, Loader2, Link2, AlertTriangle, Check } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -13,6 +15,8 @@ interface MedicaoManualSectionProps {
   medicoes: MedicaoManual[];
   onMedicoesChange: (medicoes: MedicaoManual[]) => void;
   textoAtividade?: string;
+  priceItems?: PriceItem[];
+  extractedServiceCodes?: string[]; // Códigos já extraídos na seção de serviços
 }
 
 const parseKm = (value: string): number => {
@@ -27,7 +31,7 @@ const formatKm = (value: number): string => {
 const FAIXA_OPTIONS = ['I', 'II', 'III', 'Acostamento', 'I - II', 'I - II - Acostamento', 'Fora da Faixa de Domínio'];
 const SENTIDO_OPTIONS = ['Leste', 'Oeste', 'Norte', 'Sul', 'Ambos'];
 
-export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividade }: MedicaoManualSectionProps) {
+export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividade, priceItems = [], extractedServiceCodes = [] }: MedicaoManualSectionProps) {
   const [entradaAtual, setEntradaAtual] = useState({
     kmInicial: '',
     kmFinal: '',
@@ -39,7 +43,20 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividad
     material: '',
     responsavel: '',
     descricao: '',
+    codigoServico: '', // Código vinculado à BM
   });
+
+  // Detectar código de serviço vinculado baseado na descrição
+  const matchedPriceItem = useMemo(() => {
+    if (!entradaAtual.codigoServico) return null;
+    return priceItems.find(p => p.codigo === entradaAtual.codigoServico);
+  }, [entradaAtual.codigoServico, priceItems]);
+
+  // Verificar se o código já foi lançado na seção de serviços
+  const isAlreadyExtracted = useMemo(() => {
+    if (!entradaAtual.codigoServico) return false;
+    return extractedServiceCodes.includes(entradaAtual.codigoServico);
+  }, [entradaAtual.codigoServico, extractedServiceCodes]);
 
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -219,6 +236,7 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividad
       material: '',
       responsavel: '',
       descricao: '',
+      codigoServico: '',
     });
   };
 
@@ -408,16 +426,73 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividad
           </div>
         </div>
 
-        {/* Terceira linha: Descrição */}
-        <div className="space-y-1">
-          <Label className="text-xs">Descrição da Atividade</Label>
-          <Input
-            value={entradaAtual.descricao}
-            onChange={(e) => setEntradaAtual(prev => ({ ...prev, descricao: e.target.value }))}
-            placeholder="Ex: Fresagem, recomposição e pintura horizontal"
-            className="h-8 text-sm"
-          />
+        {/* Terceira linha: Descrição e Código de Serviço */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="sm:col-span-2 space-y-1">
+            <Label className="text-xs">Descrição da Atividade</Label>
+            <Input
+              value={entradaAtual.descricao}
+              onChange={(e) => setEntradaAtual(prev => ({ ...prev, descricao: e.target.value }))}
+              placeholder="Ex: Fresagem, recomposição e pintura horizontal"
+              className="h-8 text-sm"
+            />
+          </div>
+          
+          {priceItems.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs flex items-center gap-1">
+                <Link2 className="h-3 w-3" />
+                Código BM
+              </Label>
+              <Select
+                value={entradaAtual.codigoServico}
+                onValueChange={(value) => setEntradaAtual(prev => ({ ...prev, codigoServico: value }))}
+              >
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="Vincular..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  <SelectItem value="">Nenhum</SelectItem>
+                  {priceItems.slice(0, 100).map(item => (
+                    <SelectItem key={item.id} value={item.codigo}>
+                      <span className="font-mono text-xs">{item.codigo}</span>
+                      <span className="text-xs text-muted-foreground ml-1 truncate">
+                        - {item.descricao.substring(0, 30)}...
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
+
+        {/* Indicador de vínculo e alerta de duplicação */}
+        {entradaAtual.codigoServico && (
+          <div className="space-y-2">
+            {matchedPriceItem && (
+              <div className="flex items-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/30">
+                <Check className="h-4 w-4 text-green-600" />
+                <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                  Vinculado: {matchedPriceItem.codigo} - {matchedPriceItem.descricao.substring(0, 50)}...
+                </span>
+                <Badge variant="outline" className="ml-auto text-xs">
+                  {matchedPriceItem.unidade} | R$ {matchedPriceItem.precoUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Badge>
+              </div>
+            )}
+            
+            {isAlreadyExtracted && (
+              <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/30">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                  ⚠️ Este código já foi lançado na seção "Lançamento de Serviços" acima. 
+                  Verifique se não está duplicando!
+                </span>
+              </div>
+            )}
+          </div>
+        )}
         
         <Button
           type="button"
