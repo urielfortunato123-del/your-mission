@@ -135,56 +135,240 @@ export function useSupabasePricing() {
     return { contratada, contrato };
   };
 
-  // Detect BM column structure
+  // Detect BM column structure - Enhanced version
   const detectBMColumns = (rows: any[][]): { 
     codigoCol: number; descricaoCol: number; unidadeCol: number; 
     qtdeCol: number; puCol: number; valorCol: number; headerRowIndex: number;
+    priceColCandidates: number[]; // Additional columns that might contain prices
   } | null => {
+    // Common header patterns for price columns
+    const pricePatterns = [
+      /^P\.?U\.?$/i,                    // PU, P.U.
+      /PRE[CÇ]O\s*UNIT/i,               // PREÇO UNITÁRIO
+      /UNIT[AÁ]RIO/i,                    // UNITÁRIO
+      /VALOR\s*UNIT/i,                   // VALOR UNITÁRIO
+      /P\.\s*UNIT/i,                     // P. UNIT
+      /CUSTO\s*UNIT/i,                   // CUSTO UNITÁRIO
+      /R\$\s*\/\s*UN/i,                  // R$/UN
+      /TARIFA/i,                          // TARIFA
+      /PRE[CÇ]O$/i,                       // PREÇO
+    ];
+
+    const codePatterns = [
+      /^C[OÓ]D(IGO)?$/i,
+      /^ITEM$/i,
+      /^ID$/i,
+      /^N[UÚ]M(ERO)?$/i,
+      /^REF(ER[EÊ]NCIA)?$/i,
+      /^SERVI[CÇ]O$/i,
+    ];
+
+    const descPatterns = [
+      /DESCRI[CÇ][AÃ]O/i,
+      /SERVI[CÇ]O/i,
+      /ESPECIFICA[CÇ][AÃ]O/i,
+      /DISCRIMINA[CÇ][AÃ]O/i,
+    ];
+
+    const unitPatterns = [
+      /^UN(D|IDADE)?$/i,
+      /^UNID$/i,
+    ];
+
+    // First pass: Try to find explicit header row
+    for (let i = 0; i < Math.min(25, rows.length); i++) {
+      const row = rows[i];
+      if (!row || row.length < 3) continue;
+      
+      const cells = row.map(c => String(c || '').trim());
+      
+      let codigoCol = -1, descricaoCol = -1, unidadeCol = -1;
+      const puCandidates: number[] = [];
+      let valorCol = -1;
+      
+      cells.forEach((cell, idx) => {
+        const upper = cell.toUpperCase();
+        
+        // Code column
+        if (codigoCol === -1 && codePatterns.some(p => p.test(cell))) {
+          codigoCol = idx;
+        }
+        
+        // Description column
+        if (descricaoCol === -1 && descPatterns.some(p => p.test(cell))) {
+          descricaoCol = idx;
+        }
+        
+        // Unit column
+        if (unidadeCol === -1 && unitPatterns.some(p => p.test(cell))) {
+          unidadeCol = idx;
+        }
+        
+        // Price columns - collect all candidates
+        if (pricePatterns.some(p => p.test(cell))) {
+          puCandidates.push(idx);
+        }
+        
+        // Total value column (not unit price)
+        if (/^VALOR\s*(TOTAL)?$/i.test(cell) || /^TOTAL$/i.test(cell)) {
+          valorCol = idx;
+        }
+      });
+
+      // We found a valid header row
+      if ((codigoCol >= 0 || descricaoCol >= 0) && puCandidates.length > 0) {
+        // If no code column but description found, code is likely first column
+        if (codigoCol === -1 && descricaoCol >= 0) {
+          codigoCol = 0;
+        }
+        // If no description but code found, description is likely next column
+        if (descricaoCol === -1 && codigoCol >= 0) {
+          descricaoCol = codigoCol + 1;
+        }
+        
+        const primaryPuCol = puCandidates[0];
+        
+        return { 
+          codigoCol, 
+          descricaoCol, 
+          unidadeCol: unidadeCol >= 0 ? unidadeCol : descricaoCol + 1,
+          qtdeCol: unidadeCol >= 0 ? unidadeCol + 1 : descricaoCol + 2,
+          puCol: primaryPuCol, 
+          valorCol: valorCol >= 0 ? valorCol : primaryPuCol + 1,
+          headerRowIndex: i,
+          priceColCandidates: puCandidates,
+        };
+      }
+    }
+    
+    // Second pass: Look for specific BM format patterns
     for (let i = 0; i < Math.min(20, rows.length); i++) {
       const row = rows[i];
       if (!row) continue;
       const cells = row.map(c => String(c || '').trim().toUpperCase());
       
+      // DER/DNIT format: "DESCRIÇÃO SERVIÇO"
       if (cells.some(c => c.includes('DESCRIÇÃO SERVIÇO') || c.includes('DESCRICAO SERVICO'))) {
-        return { codigoCol: 0, descricaoCol: 3, unidadeCol: 4, qtdeCol: 5, puCol: 6, valorCol: 7, headerRowIndex: i };
+        return { 
+          codigoCol: 0, descricaoCol: 3, unidadeCol: 4, qtdeCol: 5, puCol: 6, valorCol: 7, 
+          headerRowIndex: i, priceColCandidates: [6, 7] 
+        };
+      }
+      
+      // Alternative: Look for numeric patterns in subsequent rows
+      if (i < rows.length - 1) {
+        const nextRow = rows[i + 1];
+        if (nextRow) {
+          const numericCols: number[] = [];
+          nextRow.forEach((cell, idx) => {
+            const val = parsePrice(cell);
+            if (val > 0 && val < 1000000) {
+              numericCols.push(idx);
+            }
+          });
+          
+          // If we find multiple numeric columns, likely found data
+          if (numericCols.length >= 2 && cells.some(c => c.length > 5)) {
+            // Find the rightmost numeric columns as price/value
+            const sortedNumeric = numericCols.sort((a, b) => b - a);
+            return {
+              codigoCol: 0,
+              descricaoCol: 1,
+              unidadeCol: sortedNumeric.length > 3 ? sortedNumeric[3] : 2,
+              qtdeCol: sortedNumeric.length > 2 ? sortedNumeric[2] : 3,
+              puCol: sortedNumeric.length > 1 ? sortedNumeric[1] : sortedNumeric[0],
+              valorCol: sortedNumeric[0],
+              headerRowIndex: i,
+              priceColCandidates: sortedNumeric.slice(0, 3),
+            };
+          }
+        }
       }
     }
     
-    // Try generic header detection
-    for (let i = 0; i < Math.min(20, rows.length); i++) {
-      const row = rows[i];
-      if (!row) continue;
-      const cells = row.map(c => String(c || '').trim());
-      
-      let codigoCol = -1, descricaoCol = -1, unidadeCol = -1, puCol = -1, valorCol = -1;
-      
-      cells.forEach((cell, idx) => {
-        const upper = cell.toUpperCase();
-        if (/^(CÓDIGO|CODIGO|COD|ITEM|ID)$/.test(upper)) codigoCol = idx;
-        if (upper.includes('DESCRIÇÃO') || upper.includes('SERVIÇO')) descricaoCol = idx;
-        if (/^(UN|UND|UNIDADE)$/.test(upper)) unidadeCol = idx;
-        if (upper === 'PU' || upper.includes('PREÇO UNIT')) puCol = idx;
-        if (upper === 'VALOR' && !upper.includes('UNIT')) valorCol = idx;
-      });
-
-      if (codigoCol >= 0 && descricaoCol >= 0 && (puCol >= 0 || valorCol >= 0)) {
-        return { 
-          codigoCol, descricaoCol, 
-          unidadeCol: unidadeCol >= 0 ? unidadeCol : descricaoCol + 1,
-          qtdeCol: descricaoCol + 2,
-          puCol: puCol >= 0 ? puCol : valorCol - 1, 
-          valorCol: valorCol >= 0 ? valorCol : puCol + 1,
-          headerRowIndex: i 
-        };
-      }
-    }
     return null;
   };
 
+  // Enhanced price parser - handles multiple formats
   const parsePrice = (value: any): number => {
-    if (typeof value === 'number') return value;
-    const str = String(value || '0').replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
-    return parseFloat(str) || 0;
+    if (value === null || value === undefined || value === '') return 0;
+    
+    // Already a valid number
+    if (typeof value === 'number' && !isNaN(value)) {
+      return value;
+    }
+    
+    let str = String(value).trim();
+    
+    // Remove currency symbols and spaces
+    str = str.replace(/R\$\s*/gi, '').replace(/\s+/g, '');
+    
+    // Handle Brazilian format: 1.234,56 -> 1234.56
+    // Check if it's Brazilian format (has comma as decimal separator)
+    if (/^\d{1,3}(?:\.\d{3})*,\d{2}$/.test(str)) {
+      str = str.replace(/\./g, '').replace(',', '.');
+    }
+    // Handle US format: 1,234.56 -> 1234.56  
+    else if (/^\d{1,3}(?:,\d{3})*\.\d{2}$/.test(str)) {
+      str = str.replace(/,/g, '');
+    }
+    // Handle simple comma decimal: 123,45 -> 123.45
+    else if (/^\d+,\d{1,2}$/.test(str)) {
+      str = str.replace(',', '.');
+    }
+    // Handle thousands with spaces: 1 234,56
+    else if (/^\d{1,3}(?:\s\d{3})*[,\.]\d{2}$/.test(str)) {
+      str = str.replace(/\s/g, '').replace(',', '.');
+    }
+    // Generic cleanup
+    else {
+      // If has both . and ,: determine which is decimal
+      if (str.includes('.') && str.includes(',')) {
+        const lastDot = str.lastIndexOf('.');
+        const lastComma = str.lastIndexOf(',');
+        if (lastComma > lastDot) {
+          // Brazilian: 1.234,56
+          str = str.replace(/\./g, '').replace(',', '.');
+        } else {
+          // US: 1,234.56
+          str = str.replace(/,/g, '');
+        }
+      } else if (str.includes(',') && !str.includes('.')) {
+        // Only comma - assume decimal separator
+        str = str.replace(',', '.');
+      }
+    }
+    
+    // Remove any remaining non-numeric characters except . and -
+    str = str.replace(/[^\d.\-]/g, '');
+    
+    const result = parseFloat(str);
+    return isNaN(result) ? 0 : result;
+  };
+
+  // Find best price from multiple column candidates
+  const findBestPrice = (row: any[], priceColCandidates: number[], puCol: number): number => {
+    // Try primary column first
+    const primaryPrice = parsePrice(row[puCol]);
+    if (primaryPrice > 0) return primaryPrice;
+    
+    // Try other candidates
+    for (const col of priceColCandidates) {
+      if (col !== puCol) {
+        const price = parsePrice(row[col]);
+        if (price > 0) return price;
+      }
+    }
+    
+    // Last resort: scan row for any numeric value that looks like a price
+    for (let i = row.length - 1; i >= 0; i--) {
+      const val = parsePrice(row[i]);
+      if (val > 0.01 && val < 10000000) {
+        return val;
+      }
+    }
+    
+    return 0;
   };
 
   const isValidServiceCode = (code: string): boolean => {
@@ -223,7 +407,7 @@ export function useSupabasePricing() {
       const columns = detectBMColumns(jsonData);
       
       if (!columns) {
-        // Fallback simple format
+        // Fallback simple format - try to find price in any column
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i];
           if (!row || row.length < 2) continue;
@@ -232,11 +416,21 @@ export function useSupabasePricing() {
           const descricao = String(row[1] || '').trim();
           if (!codigo || !descricao || seenCodes.has(codigo)) continue;
           
+          // Try columns 3, 4, 5 for price (common positions)
+          let preco = 0;
+          for (let col = row.length - 1; col >= 2; col--) {
+            const val = parsePrice(row[col]);
+            if (val > 0.01 && val < 10000000) {
+              preco = val;
+              break;
+            }
+          }
+          
           seenCodes.add(codigo);
           newItems.push({
             codigo, descricao,
             unidade: String(row[2] || 'UN').trim(),
-            precoUnitario: parsePrice(row[3]),
+            precoUnitario: preco,
             categoria: sheetName !== 'Sheet1' ? sheetName : undefined,
             contratada: detectedContratada,
             contrato: detectedContrato,
@@ -244,6 +438,16 @@ export function useSupabasePricing() {
         }
         return;
       }
+
+      // Log detected columns for debugging
+      console.log(`[BM Import] Sheet "${sheetName}" - Detected columns:`, {
+        headerRow: columns.headerRowIndex,
+        codigo: columns.codigoCol,
+        descricao: columns.descricaoCol,
+        unidade: columns.unidadeCol,
+        pu: columns.puCol,
+        priceCandidates: columns.priceColCandidates,
+      });
 
       for (let i = columns.headerRowIndex + 1; i < jsonData.length; i++) {
         const row = jsonData[i];
@@ -255,11 +459,14 @@ export function useSupabasePricing() {
         const descricao = String(row[columns.descricaoCol] || '').trim();
         if (!descricao || descricao.length < 3 || seenCodes.has(codigo)) continue;
         
+        // Use enhanced price finding
+        const preco = findBestPrice(row, columns.priceColCandidates, columns.puCol);
+        
         seenCodes.add(codigo);
         newItems.push({
           codigo, descricao,
           unidade: String(row[columns.unidadeCol] || 'UN').trim().toUpperCase(),
-          precoUnitario: parsePrice(row[columns.puCol]),
+          precoUnitario: preco,
           categoria: sheetName !== 'Sheet1' ? sheetName : undefined,
           fonte: 'BM',
           contratada: detectedContratada,
