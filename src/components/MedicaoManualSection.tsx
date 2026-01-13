@@ -445,14 +445,14 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividad
                 Código BM
               </Label>
               <Select
-                value={entradaAtual.codigoServico}
-                onValueChange={(value) => setEntradaAtual(prev => ({ ...prev, codigoServico: value }))}
+                value={entradaAtual.codigoServico || "__none__"}
+                onValueChange={(value) => setEntradaAtual(prev => ({ ...prev, codigoServico: value === "__none__" ? "" : value }))}
               >
                 <SelectTrigger className="h-8 text-sm">
                   <SelectValue placeholder="Vincular..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value="__none__">Nenhum</SelectItem>
                   {priceItems.slice(0, 100).map(item => (
                     <SelectItem key={item.id} value={item.codigo}>
                       <span className="font-mono text-xs">{item.codigo}</span>
@@ -468,7 +468,7 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividad
         </div>
 
         {/* Indicador de vínculo e alerta de duplicação */}
-        {entradaAtual.codigoServico && (
+        {entradaAtual.codigoServico && entradaAtual.codigoServico !== "__none__" && (
           <div className="space-y-2">
             {matchedPriceItem && (
               <div className="flex items-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/30">
