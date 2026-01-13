@@ -13,7 +13,7 @@ import { UserManual } from '@/components/UserManual';
 import { TextReportExtractor } from '@/components/TextReportExtractor';
 
 import { useActivities } from '@/hooks/useActivities';
-import { usePricing } from '@/hooks/usePricing';
+import { useSupabasePricing } from '@/hooks/useSupabasePricing';
 import { Activity } from '@/types/activity';
 import { toast } from 'sonner';
 
@@ -54,7 +54,7 @@ import { Label } from '@/components/ui/label';
 
 const Index = () => {
   const { activities, addActivity, updateActivity, deleteActivity, clearAllActivities, loadActivities, getMonthSummary } = useActivities();
-  const pricing = usePricing();
+  const pricing = useSupabasePricing();
   
   const [formOpen, setFormOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);

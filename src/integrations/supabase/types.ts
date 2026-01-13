@@ -14,7 +14,181 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      price_items: {
+        Row: {
+          categoria: string | null
+          codigo: string
+          contratada: string | null
+          contrato: string | null
+          created_at: string | null
+          descricao: string
+          fonte: string | null
+          id: string
+          preco_unitario: number
+          sheet_id: string | null
+          unidade: string
+        }
+        Insert: {
+          categoria?: string | null
+          codigo: string
+          contratada?: string | null
+          contrato?: string | null
+          created_at?: string | null
+          descricao: string
+          fonte?: string | null
+          id?: string
+          preco_unitario?: number
+          sheet_id?: string | null
+          unidade?: string
+        }
+        Update: {
+          categoria?: string | null
+          codigo?: string
+          contratada?: string | null
+          contrato?: string | null
+          created_at?: string | null
+          descricao?: string
+          fonte?: string | null
+          id?: string
+          preco_unitario?: number
+          sheet_id?: string | null
+          unidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_items_sheet_id_fkey"
+            columns: ["sheet_id"]
+            isOneToOne: false
+            referencedRelation: "price_sheet_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_sheet_files: {
+        Row: {
+          contratada: string
+          contrato: string | null
+          created_at: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          items_count: number | null
+          uploaded_at: string | null
+        }
+        Insert: {
+          contratada: string
+          contrato?: string | null
+          created_at?: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          id?: string
+          items_count?: number | null
+          uploaded_at?: string | null
+        }
+        Update: {
+          contratada?: string
+          contrato?: string | null
+          created_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          items_count?: number | null
+          uploaded_at?: string | null
+        }
+        Relationships: []
+      }
+      service_entries: {
+        Row: {
+          activity_id: string
+          codigo: string
+          contratada: string | null
+          created_at: string | null
+          data: string
+          descricao: string
+          estaca_final: string | null
+          estaca_inicial: string | null
+          faixa: string | null
+          fiscal: string | null
+          id: string
+          km_final: string | null
+          km_inicial: string | null
+          lado: string | null
+          localizacao: string | null
+          obra: string | null
+          observacoes: string | null
+          preco_unitario: number
+          price_item_id: string | null
+          quantidade: number
+          segmento: string | null
+          trecho: string | null
+          unidade: string
+          valor_total: number
+        }
+        Insert: {
+          activity_id: string
+          codigo: string
+          contratada?: string | null
+          created_at?: string | null
+          data: string
+          descricao: string
+          estaca_final?: string | null
+          estaca_inicial?: string | null
+          faixa?: string | null
+          fiscal?: string | null
+          id?: string
+          km_final?: string | null
+          km_inicial?: string | null
+          lado?: string | null
+          localizacao?: string | null
+          obra?: string | null
+          observacoes?: string | null
+          preco_unitario?: number
+          price_item_id?: string | null
+          quantidade?: number
+          segmento?: string | null
+          trecho?: string | null
+          unidade?: string
+          valor_total?: number
+        }
+        Update: {
+          activity_id?: string
+          codigo?: string
+          contratada?: string | null
+          created_at?: string | null
+          data?: string
+          descricao?: string
+          estaca_final?: string | null
+          estaca_inicial?: string | null
+          faixa?: string | null
+          fiscal?: string | null
+          id?: string
+          km_final?: string | null
+          km_inicial?: string | null
+          lado?: string | null
+          localizacao?: string | null
+          obra?: string | null
+          observacoes?: string | null
+          preco_unitario?: number
+          price_item_id?: string | null
+          quantidade?: number
+          segmento?: string | null
+          trecho?: string | null
+          unidade?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_entries_price_item_id_fkey"
+            columns: ["price_item_id"]
+            isOneToOne: false
+            referencedRelation: "price_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
