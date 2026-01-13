@@ -248,7 +248,7 @@ const Index = () => {
             </h2>
             <div className="flex gap-2">
               <TextReportExtractor onAddActivities={handleAddExtractedActivities} />
-              <ExportButtons activities={activities} />
+              <ExportButtons activities={activities} serviceEntries={pricing.serviceEntries} />
             </div>
           </div>
           <ActivityList
