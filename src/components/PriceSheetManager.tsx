@@ -36,7 +36,7 @@ interface PriceSheetManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   priceItems: PriceItem[];
-  onImport: (file: File) => Promise<{ added: number; errors: string[] }>;
+  onImport: (file: File) => Promise<{ added: number; errors: string[]; contratada?: string; contrato?: string }>;
   onAdd: (item: Omit<PriceItem, 'id' | 'createdAt'>) => void;
   onUpdate: (id: string, updates: Partial<PriceItem>) => void;
   onDelete: (id: string) => void;
@@ -88,7 +88,11 @@ export function PriceSheetManager({
     setIsImporting(true);
     try {
       const result = await onImport(file);
-      toast.success(`${result.added} itens importados!`);
+      if (result.contratada) {
+        toast.success(`${result.added} itens importados da BM de ${result.contratada}!`);
+      } else {
+        toast.success(`${result.added} itens importados!`);
+      }
       if (result.errors.length > 0) {
         toast.warning(`${result.errors.length} linhas com problemas`);
         console.log('Erros de importação:', result.errors);
