@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { FileSpreadsheet, FileText, Filter } from 'lucide-react';
 import { Activity } from '@/types/activity';
+import { ServiceEntry } from '@/types/pricing';
 import { toast } from 'sonner';
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
@@ -12,9 +13,10 @@ import autoTable from 'jspdf-autotable';
 
 interface ExportButtonsProps {
   activities: Activity[];
+  serviceEntries?: ServiceEntry[];
 }
 
-export function ExportButtons({ activities }: ExportButtonsProps) {
+export function ExportButtons({ activities, serviceEntries = [] }: ExportButtonsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [exportType, setExportType] = useState<'excel' | 'pdf'>('excel');
   const [dataInicio, setDataInicio] = useState('');
@@ -33,6 +35,20 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
     
     return filtered;
   }, [activities, dataInicio, dataFim]);
+
+  // Agrupar service entries por activity_id para cálculo de totais
+  const serviceEntriesByActivity = useMemo(() => {
+    const grouped: Record<string, { totalQtd: number; totalValor: number; entries: ServiceEntry[] }> = {};
+    serviceEntries.forEach(entry => {
+      if (!grouped[entry.activityId]) {
+        grouped[entry.activityId] = { totalQtd: 0, totalValor: 0, entries: [] };
+      }
+      grouped[entry.activityId].totalQtd += entry.quantidade;
+      grouped[entry.activityId].totalValor += entry.valorTotal;
+      grouped[entry.activityId].entries.push(entry);
+    });
+    return grouped;
+  }, [serviceEntries]);
 
   const openExportDialog = (type: 'excel' | 'pdf') => {
     setExportType(type);
@@ -175,10 +191,25 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
       const equipData = getMissingText(a.equipamentos, 'SEM INFO');
       const atividadesData = getMissingText(a.atividades, 'SEM ATIVIDADES');
       
-      // Campos de medição - sempre mostram texto em vermelho se não tiver info
-      const qtdVerificada = getMissingText(a.quantidadeVerificada, 'n tem informação');
-      const valorUnitario = getMissingText(a.valorUnitario, 'verificar bm');
-      const valorTotal = getMissingText(a.valorTotal, 'quantidade verificada*valor unitario');
+      // Buscar valores dos service entries e medições manuais
+      const activityServices = serviceEntriesByActivity[a.id];
+      const medicoesTotais = (a.medicoesManual || []).reduce((sum, m) => sum + (m.valorTotal || 0), 0);
+      
+      // Calcular totais combinados (service entries + medições manuais)
+      const totalValorEntries = activityServices ? activityServices.totalValor : 0;
+      const totalValorCombinado = totalValorEntries + medicoesTotais;
+      
+      // Campos de medição - usar valores reais se existirem
+      const hasValues = totalValorCombinado > 0;
+      const qtdVerificada = hasValues 
+        ? { value: `${activityServices?.entries.length || 0} serv. + ${(a.medicoesManual || []).length} med.`, isMissing: false }
+        : getMissingText(a.quantidadeVerificada, 'n tem informação');
+      const valorUnitario = hasValues
+        ? { value: 'Ver detalhes', isMissing: false }
+        : getMissingText(a.valorUnitario, 'verificar bm');
+      const valorTotal = hasValues
+        ? { value: totalValorCombinado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), isMissing: false }
+        : getMissingText(a.valorTotal, 'quantidade verificada*valor unitario');
       
       const values = [
         { value: a.data, isMissing: false },
@@ -481,6 +512,73 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
         sheet.getCell(row, 8).style = labelStyle;
         sheet.getCell(row, 9).value = totalTonelada.toFixed(2).replace('.', ',');
         sheet.getCell(row, 9).style = labelStyle;
+      }
+
+      // ===== SEÇÃO DE SERVIÇOS EXTRAÍDOS (IA) =====
+      const activityServices = serviceEntriesByActivity[a.id];
+      if (activityServices && activityServices.entries.length > 0) {
+        row += 2;
+        sheet.mergeCells(`A${row}:K${row}`);
+        sheet.getCell(`A${row}`).value = 'SERVIÇOS EXTRAÍDOS (LANÇAMENTO DE SERVIÇOS):';
+        sheet.getCell(`A${row}`).style = {
+          ...sectionHeaderStyle,
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6FF' } },
+        };
+
+        // Cabeçalho da tabela de serviços
+        row++;
+        const servicoHeaders = ['Código', 'Descrição', 'Qtd', 'Unid.', 'P. Unit.', 'V. Total', 'Trecho', 'Km Ini', 'Km Fim', 'Faixa', 'Lado'];
+        servicoHeaders.forEach((h, i) => {
+          const cell = sheet.getCell(row, i + 1);
+          cell.value = h;
+          cell.style = headerStyle;
+        });
+
+        // Dados dos serviços
+        let totalServicos = 0;
+        activityServices.entries.forEach((serv) => {
+          row++;
+          const servicoValues = [
+            serv.codigo,
+            serv.descricao.substring(0, 40) + (serv.descricao.length > 40 ? '...' : ''),
+            serv.quantidade,
+            serv.unidade,
+            serv.precoUnitario,
+            serv.valorTotal,
+            serv.trecho || '-',
+            serv.kmInicial || '-',
+            serv.kmFinal || '-',
+            serv.faixa || '-',
+            serv.lado || '-',
+          ];
+          servicoValues.forEach((v, i) => {
+            const cell = sheet.getCell(row, i + 1);
+            cell.value = v;
+            cell.border = cellBorder;
+            cell.alignment = { vertical: 'middle', wrapText: i === 1 };
+            // Destacar código em azul
+            if (i === 0) {
+              cell.font = { bold: true, color: { argb: 'FF2563EB' } };
+            }
+            // Formatar valores monetários
+            if (i === 4 || i === 5) {
+              cell.numFmt = 'R$ #,##0.00';
+            }
+          });
+          totalServicos += serv.valorTotal;
+        });
+
+        // Total dos serviços
+        row++;
+        sheet.getCell(row, 4).value = 'TOTAL SERVIÇOS:';
+        sheet.getCell(row, 4).style = labelStyle;
+        sheet.getCell(row, 6).value = totalServicos;
+        sheet.getCell(row, 6).numFmt = 'R$ #,##0.00';
+        sheet.getCell(row, 6).style = {
+          font: { bold: true },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6FF' } },
+          border: cellBorder,
+        };
       }
 
       // Rodapé
