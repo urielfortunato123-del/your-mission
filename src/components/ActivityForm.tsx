@@ -782,20 +782,56 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
                 </Button>
               </div>
 
-              {/* 🔥 Indicador da BM sendo usada */}
-              {formData.contratada && (
-                <div className="flex items-center gap-2 p-2 rounded-md bg-primary/10 border border-primary/20">
-                  <span className="text-xs font-medium text-primary">📊 BM:</span>
-                  <span className="text-xs font-semibold text-primary">{formData.contratada}</span>
-                  <span className="text-xs text-muted-foreground">
-                    ({priceItems.filter(p => {
-                      const contratadaItem = (p.contratada || '').toUpperCase();
-                      const contratadaRDA = (formData.contratada || '').toUpperCase();
-                      return contratadaItem.includes(contratadaRDA) || contratadaRDA.includes(contratadaItem);
-                    }).length} itens disponíveis)
-                  </span>
-                </div>
-              )}
+              {/* 🔥 Indicador da BM sendo usada ou alerta de BM não encontrada */}
+              {(() => {
+                const contratadaRDA = (formData.contratada || '').toUpperCase();
+                const itemsDisponiveis = priceItems.filter(p => {
+                  const contratadaItem = (p.contratada || '').toUpperCase();
+                  return contratadaItem.includes(contratadaRDA) || 
+                         contratadaRDA.includes(contratadaItem) ||
+                         contratadaItem.replace(/\s*(LTDA|EPP|ME|EIRELI|S\.?A\.?).*$/i, '').trim() === 
+                         contratadaRDA.replace(/\s*(LTDA|EPP|ME|EIRELI|S\.?A\.?).*$/i, '').trim();
+                });
+                
+                if (!formData.contratada) {
+                  return (
+                    <div className="flex items-center gap-2 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30">
+                      <span className="text-yellow-600 dark:text-yellow-400">⚠️</span>
+                      <span className="text-sm text-yellow-700 dark:text-yellow-300">
+                        Preencha o campo <strong>"Contratada"</strong> para vincular com a planilha BM correta
+                      </span>
+                    </div>
+                  );
+                }
+                
+                if (itemsDisponiveis.length === 0) {
+                  return (
+                    <div className="flex flex-col gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/30">
+                      <div className="flex items-center gap-2">
+                        <span className="text-destructive">❌</span>
+                        <span className="text-sm text-destructive font-medium">
+                          Nenhuma planilha BM encontrada para "{formData.contratada}"
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground pl-6">
+                        Para calcular os valores, importe a planilha de preços (BM) desta contratada no menu{' '}
+                        <strong>📊 Planilha de Preços</strong>
+                      </p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div className="flex items-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/30">
+                    <span className="text-green-600 dark:text-green-400">✅</span>
+                    <span className="text-xs font-medium text-green-700 dark:text-green-300">BM:</span>
+                    <span className="text-xs font-semibold text-green-700 dark:text-green-300">{formData.contratada}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({itemsDisponiveis.length} itens disponíveis)
+                    </span>
+                  </div>
+                );
+              })()}
               
               {extractedServices.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
