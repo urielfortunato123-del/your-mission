@@ -135,12 +135,54 @@ export function useSupabasePricing() {
     return { contratada, contrato };
   };
 
-  // Detect BM column structure - Enhanced version
+  // Detect BM column structure - Enhanced version for CCR BM format
   const detectBMColumns = (rows: any[][]): { 
     codigoCol: number; descricaoCol: number; unidadeCol: number; 
     qtdeCol: number; puCol: number; valorCol: number; headerRowIndex: number;
     priceColCandidates: number[]; // Additional columns that might contain prices
   } | null => {
+    // First: Look for specific CCR/DER BM format header
+    for (let i = 0; i < Math.min(25, rows.length); i++) {
+      const row = rows[i];
+      if (!row || row.length < 5) continue;
+      
+      const cells = row.map(c => String(c || '').trim().toUpperCase());
+      const rowText = cells.join(' ');
+      
+      // CCR BM Format: |Código|Linha|ID|DESCRIÇÃO SERVIÇO|UN|QTDE|PU|VALOR|...
+      if (rowText.includes('DESCRIÇÃO SERVIÇO') || rowText.includes('DESCRICAO SERVICO')) {
+        // Find exact column positions
+        let codigoCol = -1, descricaoCol = -1, unidadeCol = -1, qtdeCol = -1, puCol = -1, valorCol = -1;
+        
+        cells.forEach((cell, idx) => {
+          const normalized = cell.replace(/[^A-Z0-9]/g, '');
+          if (normalized === 'CODIGO' || normalized === 'COD') codigoCol = idx;
+          if (cell.includes('DESCRIÇÃO') || cell.includes('DESCRICAO') || cell.includes('SERVIÇO')) descricaoCol = idx;
+          if (normalized === 'UN' || normalized === 'UND' || normalized === 'UNIDADE') unidadeCol = idx;
+          if (normalized === 'QTDE' || normalized === 'QTD' || normalized === 'QUANTIDADE') qtdeCol = idx;
+          if (normalized === 'PU' || cell.includes('PREÇO UNIT') || cell.includes('PRECO UNIT')) puCol = idx;
+          if (normalized === 'VALOR' && puCol !== -1 && idx > puCol) valorCol = idx;
+        });
+        
+        // Default CCR positions if not all found
+        if (codigoCol === -1) codigoCol = 0;
+        if (descricaoCol === -1) descricaoCol = 3;
+        if (unidadeCol === -1) unidadeCol = 4;
+        if (qtdeCol === -1) qtdeCol = 5;
+        if (puCol === -1) puCol = 6;
+        if (valorCol === -1) valorCol = 7;
+        
+        console.log(`[BM Import] Found CCR format header at row ${i}:`, {
+          codigoCol, descricaoCol, unidadeCol, qtdeCol, puCol, valorCol
+        });
+        
+        return { 
+          codigoCol, descricaoCol, unidadeCol, qtdeCol, puCol, valorCol, 
+          headerRowIndex: i, priceColCandidates: [puCol, valorCol] 
+        };
+      }
+    }
+    
     // Common header patterns for price columns
     const pricePatterns = [
       /^P\.?U\.?$/i,                    // PU, P.U.
@@ -175,7 +217,7 @@ export function useSupabasePricing() {
       /^UNID$/i,
     ];
 
-    // First pass: Try to find explicit header row
+    // Second pass: Try to find explicit header row with generic patterns
     for (let i = 0; i < Math.min(25, rows.length); i++) {
       const row = rows[i];
       if (!row || row.length < 3) continue;
@@ -187,8 +229,6 @@ export function useSupabasePricing() {
       let valorCol = -1;
       
       cells.forEach((cell, idx) => {
-        const upper = cell.toUpperCase();
-        
         // Code column
         if (codigoCol === -1 && codePatterns.some(p => p.test(cell))) {
           codigoCol = idx;
@@ -217,14 +257,8 @@ export function useSupabasePricing() {
 
       // We found a valid header row
       if ((codigoCol >= 0 || descricaoCol >= 0) && puCandidates.length > 0) {
-        // If no code column but description found, code is likely first column
-        if (codigoCol === -1 && descricaoCol >= 0) {
-          codigoCol = 0;
-        }
-        // If no description but code found, description is likely next column
-        if (descricaoCol === -1 && codigoCol >= 0) {
-          descricaoCol = codigoCol + 1;
-        }
+        if (codigoCol === -1 && descricaoCol >= 0) codigoCol = 0;
+        if (descricaoCol === -1 && codigoCol >= 0) descricaoCol = codigoCol + 1;
         
         const primaryPuCol = puCandidates[0];
         
@@ -238,51 +272,6 @@ export function useSupabasePricing() {
           headerRowIndex: i,
           priceColCandidates: puCandidates,
         };
-      }
-    }
-    
-    // Second pass: Look for specific BM format patterns
-    for (let i = 0; i < Math.min(20, rows.length); i++) {
-      const row = rows[i];
-      if (!row) continue;
-      const cells = row.map(c => String(c || '').trim().toUpperCase());
-      
-      // DER/DNIT format: "DESCRIÇÃO SERVIÇO"
-      if (cells.some(c => c.includes('DESCRIÇÃO SERVIÇO') || c.includes('DESCRICAO SERVICO'))) {
-        return { 
-          codigoCol: 0, descricaoCol: 3, unidadeCol: 4, qtdeCol: 5, puCol: 6, valorCol: 7, 
-          headerRowIndex: i, priceColCandidates: [6, 7] 
-        };
-      }
-      
-      // Alternative: Look for numeric patterns in subsequent rows
-      if (i < rows.length - 1) {
-        const nextRow = rows[i + 1];
-        if (nextRow) {
-          const numericCols: number[] = [];
-          nextRow.forEach((cell, idx) => {
-            const val = parsePrice(cell);
-            if (val > 0 && val < 1000000) {
-              numericCols.push(idx);
-            }
-          });
-          
-          // If we find multiple numeric columns, likely found data
-          if (numericCols.length >= 2 && cells.some(c => c.length > 5)) {
-            // Find the rightmost numeric columns as price/value
-            const sortedNumeric = numericCols.sort((a, b) => b - a);
-            return {
-              codigoCol: 0,
-              descricaoCol: 1,
-              unidadeCol: sortedNumeric.length > 3 ? sortedNumeric[3] : 2,
-              qtdeCol: sortedNumeric.length > 2 ? sortedNumeric[2] : 3,
-              puCol: sortedNumeric.length > 1 ? sortedNumeric[1] : sortedNumeric[0],
-              valorCol: sortedNumeric[0],
-              headerRowIndex: i,
-              priceColCandidates: sortedNumeric.slice(0, 3),
-            };
-          }
-        }
       }
     }
     
