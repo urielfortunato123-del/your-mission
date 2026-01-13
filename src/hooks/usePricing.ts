@@ -46,6 +46,35 @@ export function usePricing() {
     localStorage.setItem(SERVICE_STORAGE_KEY, JSON.stringify(entries));
   }, []);
 
+  // Detect contractor name from BM header
+  const detectContratadaFromBM = (rows: any[][]): { contratada: string; contrato: string } => {
+    let contratada = '';
+    let contrato = '';
+    
+    for (let i = 0; i < Math.min(15, rows.length); i++) {
+      const row = rows[i];
+      if (!row) continue;
+      
+      const rowText = row.map(c => String(c || '')).join(' ');
+      
+      // Look for "Contratada:" pattern
+      const contratadaMatch = rowText.match(/Contratada[:\s]*([A-ZÀ-Ú][A-ZÀ-Ú\s\-\.]+(?:LTDA|S\.?A\.?|EPP|ME|EIRELI)?)/i);
+      if (contratadaMatch) {
+        contratada = contratadaMatch[1].trim();
+      }
+      
+      // Look for contract number
+      const contratoMatch = rowText.match(/(?:Contrato|Nº Contrato)[:\s]*(\d{10,})/i);
+      if (contratoMatch) {
+        contrato = contratoMatch[1].trim();
+      }
+      
+      if (contratada && contrato) break;
+    }
+    
+    return { contratada, contrato };
+  };
+
   // Detect column indices from header row
   const detectBMColumns = (rows: any[][]): { 
     codigoCol: number; 
@@ -144,7 +173,7 @@ export function usePricing() {
   };
 
   // Import price items from Excel/CSV (BM format)
-  const importPriceSheet = useCallback((file: File): Promise<{ added: number; errors: string[] }> => {
+  const importPriceSheet = useCallback((file: File): Promise<{ added: number; errors: string[]; contratada?: string; contrato?: string }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
@@ -156,11 +185,20 @@ export function usePricing() {
           const errors: string[] = [];
           const newItems: PriceItem[] = [];
           const seenCodes = new Set<string>();
+          let detectedContratada = '';
+          let detectedContrato = '';
           
           // Process all sheets
           workbook.SheetNames.forEach(sheetName => {
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+            
+            // Detect contractor name from BM header (first sheet only)
+            if (!detectedContratada) {
+              const bmInfo = detectContratadaFromBM(jsonData);
+              detectedContratada = bmInfo.contratada;
+              detectedContrato = bmInfo.contrato;
+            }
             
             // Detect column structure
             const columns = detectBMColumns(jsonData);
@@ -188,6 +226,8 @@ export function usePricing() {
                   precoUnitario: preco,
                   categoria: sheetName !== 'Sheet1' ? sheetName : '',
                   fonte: '',
+                  contratada: detectedContratada,
+                  contrato: detectedContrato,
                   createdAt: new Date().toISOString(),
                 });
               }
@@ -222,6 +262,8 @@ export function usePricing() {
                 precoUnitario: preco,
                 categoria: sheetName !== 'Sheet1' ? sheetName : '',
                 fonte: 'BM',
+                contratada: detectedContratada,
+                contrato: detectedContrato,
                 createdAt: new Date().toISOString(),
               });
             }
@@ -238,7 +280,7 @@ export function usePricing() {
           });
           
           savePriceItems(Array.from(existingMap.values()));
-          resolve({ added: newItems.length, errors });
+          resolve({ added: newItems.length, errors, contratada: detectedContratada, contrato: detectedContrato });
         } catch (error) {
           console.error('Erro ao importar planilha:', error);
           reject(error);
@@ -451,6 +493,46 @@ export function usePricing() {
     if (data.serviceEntries) saveServiceEntries(data.serviceEntries);
   }, [savePriceItems, saveServiceEntries]);
 
+  // Get unique contractor names from price items
+  const getContratadas = useCallback((): string[] => {
+    const contratadas = new Set<string>();
+    priceItems.forEach(item => {
+      if (item.contratada) {
+        contratadas.add(item.contratada);
+      }
+    });
+    return Array.from(contratadas).sort();
+  }, [priceItems]);
+
+  // Get price items filtered by contractor
+  const getPriceItemsByContratada = useCallback((contratada: string): PriceItem[] => {
+    if (!contratada) return priceItems;
+    return priceItems.filter(item => 
+      item.contratada?.toLowerCase().includes(contratada.toLowerCase())
+    );
+  }, [priceItems]);
+
+  // Find best matching price items for a contractor
+  const findPricesByContratada = useCallback((contratada: string): PriceItem[] => {
+    if (!contratada) return [];
+    
+    // First try exact match
+    const exactMatch = priceItems.filter(item => 
+      item.contratada?.toLowerCase() === contratada.toLowerCase()
+    );
+    if (exactMatch.length > 0) return exactMatch;
+    
+    // Try partial match
+    const partialMatch = priceItems.filter(item => {
+      if (!item.contratada) return false;
+      const itemWords = item.contratada.toLowerCase().split(/\s+/);
+      const searchWords = contratada.toLowerCase().split(/\s+/);
+      return searchWords.some(sw => itemWords.some(iw => iw.includes(sw) || sw.includes(iw)));
+    });
+    
+    return partialMatch;
+  }, [priceItems]);
+
   return {
     priceItems,
     serviceEntries,
@@ -463,6 +545,9 @@ export function usePricing() {
     findPriceByCode,
     findPriceByDescription,
     clearPriceItems,
+    getContratadas,
+    getPriceItemsByContratada,
+    findPricesByContratada,
     // Service entries
     addServiceEntry,
     addServiceEntries,

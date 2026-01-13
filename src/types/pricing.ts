@@ -1,4 +1,4 @@
-// Planilha de preços base
+// Planilha de preços base (agora vinculada por contratada)
 export interface PriceItem {
   id: string;
   codigo: string; // Código do serviço (ex: BSO-01, PAV-02)
@@ -7,6 +7,8 @@ export interface PriceItem {
   precoUnitario: number;
   categoria?: string; // Categoria para agrupamento
   fonte?: string; // DER, DNIT, SICRO, SINAPI, etc.
+  contratada?: string; // Nome da contratada vinculada à BM
+  contrato?: string; // Número do contrato
   createdAt: string;
 }
 

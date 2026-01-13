@@ -35,47 +35,51 @@ serve(async (req) => {
 
     console.log('Processing file for service extraction');
     console.log('Price items available:', priceItems?.length || 0);
+    console.log('Contratada from context:', activityContext?.contratada || 'N/A');
 
-    // Build description list for semantic matching
+    // Build description list for semantic matching - include price for auto-fill
     const serviceDescriptions = priceItems?.map((p: any) => 
-      `- CÓDIGO: ${p.codigo} | DESCRIÇÃO: ${p.descricao} | UNIDADE: ${p.unidade} | PREÇO: R$ ${p.precoUnitario}`
+      `- CÓDIGO: ${p.codigo} | DESCRIÇÃO: ${p.descricao} | UNIDADE: ${p.unidade} | PREÇO: R$ ${Number(p.precoUnitario || 0).toFixed(2)}`
     ).join('\n') || '';
+
+    const contratadaInfo = activityContext?.contratada ? `\nCONTRATADA DO RDA: ${activityContext.contratada}` : '';
 
     const systemPrompt = `Você é um especialista em OCR e extração de dados de Relatórios Diários de Atividades (RDA/RDO) de obras de construção civil e rodoviárias.
 
-OBJETIVO: Extrair QUANTIDADES DE SERVIÇOS EXECUTADOS do documento e vincular com a planilha de preços.
+OBJETIVO: Extrair QUANTIDADES DE SERVIÇOS EXECUTADOS do documento e vincular com a planilha de preços/BM para gerar a MEMÓRIA DE CÁLCULO.
 
 INSTRUÇÕES DE OCR:
-- Analise CADA PARTE da imagem cuidadosamente
+- Analise CADA PARTE da imagem/texto cuidadosamente
 - Procure por tabelas de serviços, medições, quantidades
 - Preste atenção especial a números com unidades (m, m², m³, kg, un, l, ton, vb)
 - Se o texto estiver borrado, faça seu melhor esforço
+${contratadaInfo}
 
 ${serviceDescriptions ? `
-🔗 PLANILHA DE PREÇOS DISPONÍVEL PARA MATCHING:
+🔗 PLANILHA DE PREÇOS/BM DISPONÍVEL (já importada do contrato):
 ${serviceDescriptions}
 
-⚠️ REGRA CRÍTICA DE MATCHING:
+⚠️ REGRA CRÍTICA DE MATCHING - VINCULAR COM A BM:
 - Quando encontrar um serviço no RDA/RDO, procure na lista acima o item com DESCRIÇÃO MAIS SIMILAR
-- Por exemplo: "revestimento de parede" deve casar com "REVESTIMENTO CERÂMICO..." ou "ASSENTAMENTO DE AZULEJO..."
+- PRIORIZE o CÓDIGO da planilha para fazer o vínculo com a BM
+- Por exemplo: "revestimento de parede" deve casar com código que tenha descrição similar
 - "pintura" deve casar com "PINTURA LÁTEX ACRÍLICA..."
 - "demolição" deve casar com "DEMOLIÇÃO DE ALVENARIA..."
-- "piso" ou "porcelanato" deve casar com "ASSENTAMENTO DE PISO..."
-- "forro" deve casar com "EXECUÇÃO DE FORRO..." ou "INSTALAÇÃO DE FORRO..."
 - Use similaridade semântica, não precisa ser exato!
-- Se encontrar match, retorne o CÓDIGO e DESCRIÇÃO da planilha
-` : ''}
+- Se encontrar match, retorne o CÓDIGO, DESCRIÇÃO e PREÇO UNITÁRIO da planilha
+` : '⚠️ NENHUMA PLANILHA DE PREÇOS CARREGADA - Extraia os dados mas não teremos preços'}
 
 FORMATO DE SAÍDA (JSON):
 {
   "servicos": [
     {
-      "codigo": "Código da planilha encontrado ou null",
+      "codigo": "Código EXATO da planilha BM encontrado (ex: T4011, O2609) ou null se não encontrou",
       "descricaoOriginal": "Texto exato do serviço como está no RDA/RDO",
       "descricaoPlanilha": "Descrição da planilha se encontrou match ou null",
       "quantidade": número (apenas o valor numérico),
       "unidade": "m, m², m³, kg, un, etc",
-      "localizacao": "Local/frente de obra onde foi executado",
+      "precoUnitario": número do preço unitário da planilha ou 0 se não encontrou,
+      "localizacao": "Local/frente de obra onde foi executado (km, estaca, etc)",
       "observacao": "Observações adicionais se houver",
       "confiancaMatch": "alta, média ou baixa"
     }
@@ -83,20 +87,19 @@ FORMATO DE SAÍDA (JSON):
   "resumoAtividades": "Resumo geral das atividades do documento"
 }
 
-EXEMPLOS DE MATCHING:
-- RDA diz "assentamento de piso cerâmico banheiro" → Match com "ASSENTAMENTO DE PISO CERÂMICO..."
-- RDA diz "pintura interna 2 demãos" → Match com "PINTURA LÁTEX ACRÍLICA..."
-- RDA diz "demolição de parede" → Match com "DEMOLIÇÃO DE ALVENARIA..."
-- RDA diz "instalação elétrica pontos" → Match com "PONTO DE TOMADA..." ou similar
-- RDA diz "limpeza final obra" → Match com "LIMPEZA FINAL DE OBRA..."
+EXEMPLOS DE MATCHING COM BM:
+- RDA: "Barreira de concreto 68m" + BM tem "T4011 | Barreira Rígida de concreto..." → codigo: "T4011", quantidade: 68
+- RDA: "Demolição 150 m³" + BM tem "O2609 | Demolição sucateamento..." → codigo: "O2609", quantidade: 150
+- RDA: "Fresagem 500 m²" + BM tem "T1014 | Fresagem Funcional" → codigo: "T1014", quantidade: 500
 
 REGRAS CRÍTICAS:
 1. Extraia TODOS os serviços com quantidades que encontrar
 2. Números devem ser apenas valores numéricos (sem unidade)
-3. SEMPRE tente fazer match pela descrição, mesmo que parcial
+3. SEMPRE tente fazer match pelo código/descrição da planilha
 4. Se não encontrar match, mantenha descricaoPlanilha e codigo como null
 5. Normalize unidades: metros = m, metros quadrados = m², metros cúbicos = m³
-6. Retorne APENAS JSON válido, sem markdown, sem explicações`;
+6. INCLUA o precoUnitario da planilha quando encontrar match
+7. Retorne APENAS JSON válido, sem markdown, sem explicações`;
 
     // Build message content based on input type
     let messageContent: any[];
@@ -129,6 +132,7 @@ ${activityContext.observacoes ? `OBSERVAÇÕES:\n${activityContext.observacoes}`
 
 CONTEXTO:
 - Obra: ${activityContext.obra || 'N/A'}
+- Contratada: ${activityContext.contratada || 'N/A'}
 - Frente: ${activityContext.frenteObra || activityContext.frenteTrabalho || 'N/A'}
 
 IMPORTANTE: Extraia TODOS os serviços mencionados, mesmo que não tenham quantidades explícitas. Se não houver quantidade, use 1 como valor padrão.`
@@ -160,6 +164,13 @@ IMPORTANTE: Extraia TODOS os serviços mencionados, mesmo que não tenham quanti
         return new Response(
           JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns segundos.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Créditos insuficientes. Adicione créditos ao workspace.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
