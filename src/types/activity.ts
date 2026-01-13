@@ -36,6 +36,8 @@ export interface MedicaoManual {
   material: string;
   responsavel: string;
   descricao: string;
+  // Vínculo com BM
+  codigoServico?: string;
 }
 
 export interface Activity {

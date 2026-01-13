@@ -221,6 +221,7 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividad
       material: entradaAtual.material,
       responsavel: entradaAtual.responsavel,
       descricao: entradaAtual.descricao,
+      codigoServico: entradaAtual.codigoServico,
     };
 
     onMedicoesChange([...medicoes, novaMedicao]);
