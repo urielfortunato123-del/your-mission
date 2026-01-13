@@ -817,6 +817,7 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
             <MedicaoManualSection 
               medicoes={formData.medicoesManual}
               onMedicoesChange={(medicoes) => updateField('medicoesManual', medicoes)}
+              textoAtividade={formData.atividades}
             />
             
             <div className="grid grid-cols-3 gap-4">
