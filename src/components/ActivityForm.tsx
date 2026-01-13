@@ -575,13 +575,53 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
 
             <div className="space-y-2">
               <Label htmlFor="contratada">Contratada</Label>
-              <Input
-                id="contratada"
-                value={formData.contratada}
-                onChange={(e) => updateField('contratada', e.target.value)}
-                placeholder="Nome da contratada"
-                required
-              />
+              {(() => {
+                // Lista de contratadas únicas que têm BM importada
+                const contratatasComBM = [...new Set(priceItems
+                  .map(p => p.contratada)
+                  .filter(Boolean) as string[]
+                )].sort();
+                
+                return (
+                  <div className="relative">
+                    <Input
+                      id="contratada"
+                      value={formData.contratada}
+                      onChange={(e) => updateField('contratada', e.target.value)}
+                      placeholder="Nome da contratada"
+                      required
+                      list="contratadas-list"
+                      className={contratatasComBM.some(c => 
+                        c.toUpperCase().includes((formData.contratada || '').toUpperCase()) ||
+                        (formData.contratada || '').toUpperCase().includes(c.toUpperCase())
+                      ) ? 'border-green-500 focus:border-green-500' : ''}
+                    />
+                    <datalist id="contratadas-list">
+                      {contratatasComBM.map(contratada => (
+                        <option key={contratada} value={contratada} />
+                      ))}
+                    </datalist>
+                    {contratatasComBM.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <span className="text-xs text-muted-foreground">BM disponíveis:</span>
+                        {contratatasComBM.slice(0, 5).map(c => (
+                          <Badge 
+                            key={c} 
+                            variant="outline" 
+                            className="text-xs cursor-pointer hover:bg-primary/10"
+                            onClick={() => updateField('contratada', c)}
+                          >
+                            {c.length > 20 ? c.substring(0, 20) + '...' : c}
+                          </Badge>
+                        ))}
+                        {contratatasComBM.length > 5 && (
+                          <span className="text-xs text-muted-foreground">+{contratatasComBM.length - 5} mais</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
