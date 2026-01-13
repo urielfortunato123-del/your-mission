@@ -1020,20 +1020,67 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
                     );
                   })}
                   
-                  {/* Totais */}
-                  <div className="flex justify-between items-center pt-2 border-t">
-                    <p className="text-sm text-muted-foreground">
-                      {extractedServices.filter(s => s.matched).length} de {extractedServices.length} serviço(s) vinculados à BM
-                    </p>
-                    <div className="text-right">
-                      <span className="text-sm text-muted-foreground mr-2">Total:</span>
-                      <span className="text-lg font-bold text-primary">
-                        R$ {extractedServices
-                          .filter(s => s.matched)
-                          .reduce((sum, s) => sum + ((s.quantidade || 0) * (s.precoUnitario || 0)), 0)
-                          .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
+                  {/* Totais e Botão Adicionar à Medição */}
+                  <div className="flex flex-col gap-3 pt-2 border-t">
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-muted-foreground">
+                        {extractedServices.filter(s => s.matched).length} de {extractedServices.length} serviço(s) vinculados à BM
+                      </p>
+                      <div className="text-right">
+                        <span className="text-sm text-muted-foreground mr-2">Total:</span>
+                        <span className="text-lg font-bold text-primary">
+                          R$ {extractedServices
+                            .filter(s => s.matched)
+                            .reduce((sum, s) => sum + ((s.quantidade || 0) * (s.precoUnitario || 0)), 0)
+                            .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
                     </div>
+                    
+                    {/* Botão Adicionar à Medição */}
+                    {extractedServices.filter(s => s.matched).length > 0 && onServicesExtracted && (
+                      <Button
+                        type="button"
+                        variant="default"
+                        className="w-full bg-green-600 hover:bg-green-700"
+                        onClick={() => {
+                          const matchedServices = extractedServices.filter(s => s.matched);
+                          const entries = matchedServices.map(service => {
+                            // Find the price item to get its ID
+                            const priceItem = priceItems.find(p => p.codigo === service.codigo);
+                            return {
+                              activityId: initialData?.id || `temp-${Date.now()}`,
+                              priceItemId: priceItem?.id || '',
+                              data: formData.data,
+                              codigo: service.codigo,
+                              descricao: service.descricaoPlanilha || service.descricaoOriginal,
+                              quantidade: service.quantidade,
+                              unidade: service.unidade,
+                              precoUnitario: service.precoUnitario || 0,
+                              valorTotal: (service.quantidade || 0) * (service.precoUnitario || 0),
+                              localizacao: service.localizacao || formatLocalizacao(formData.localizacao),
+                              contratada: formData.contratada,
+                              obra: formData.obra,
+                              fiscal: formData.fiscal,
+                              trecho: formData.localizacao.trecho,
+                              segmento: formData.localizacao.segmento,
+                              kmInicial: formData.localizacao.kmInicial,
+                              kmFinal: formData.localizacao.kmFinal,
+                              estacaInicial: formData.localizacao.estacaInicial,
+                              estacaFinal: formData.localizacao.estacaFinal,
+                              faixa: formData.localizacao.faixa,
+                              lado: formData.localizacao.lado,
+                            };
+                          });
+                          onServicesExtracted(entries);
+                          toast.success(`${matchedServices.length} serviço(s) adicionados à medição!`);
+                          setExtractedServices([]);
+                        }}
+                      >
+                        <Calculator className="h-4 w-4 mr-2" />
+                        Adicionar {extractedServices.filter(s => s.matched).length} serviço(s) à Medição
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
