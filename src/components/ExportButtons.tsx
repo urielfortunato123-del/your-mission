@@ -409,7 +409,7 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
 
         // Cabeçalho da tabela de medições
         row++;
-        const medicaoHeaders = ['Cód. BM', 'Descrição', 'Km Inicial', 'Km Final', 'Distância', 'Largura', 'Altura', 'Área', 'Volume', 'Tonelada', 'Faixa'];
+        const medicaoHeaders = ['Cód. BM', 'Descrição', 'Km Inicial', 'Km Final', 'Distância', 'Área', 'Volume', 'Tonelada', 'Unid.', 'P. Unit.', 'V. Total'];
         medicaoHeaders.forEach((h, i) => {
           const cell = sheet.getCell(row, i + 1);
           cell.value = h;
@@ -417,6 +417,7 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
         });
 
         // Dados das medições
+        let totalMedicoes = 0;
         a.medicoesManual.forEach((med) => {
           row++;
           const medicaoValues = [
@@ -425,12 +426,12 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
             med.kmInicial || '-',
             med.kmFinal || '-',
             med.distancia || '-',
-            med.largura || '-',
-            med.altura || '-',
             med.area || '-',
             med.volume || '-',
             med.tonelada || '-',
-            med.faixa || '-',
+            med.unidade || '-',
+            med.precoUnitario || 0,
+            med.valorTotal || 0,
           ];
           medicaoValues.forEach((v, i) => {
             const cell = sheet.getCell(row, i + 1);
@@ -441,8 +442,27 @@ export function ExportButtons({ activities }: ExportButtonsProps) {
             if (i === 0 && v !== '-') {
               cell.font = { bold: true, color: { argb: 'FF2563EB' } };
             }
+            // Formatar valores monetários
+            if (i === 9 || i === 10) {
+              cell.numFmt = 'R$ #,##0.00';
+            }
           });
+          totalMedicoes += (med.valorTotal || 0);
         });
+
+        // Total das medições
+        if (totalMedicoes > 0) {
+          row++;
+          sheet.getCell(row, 9).value = 'TOTAL:';
+          sheet.getCell(row, 9).style = labelStyle;
+          sheet.getCell(row, 11).value = totalMedicoes;
+          sheet.getCell(row, 11).numFmt = 'R$ #,##0.00';
+          sheet.getCell(row, 11).style = {
+            font: { bold: true },
+            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6FFE6' } },
+            border: cellBorder,
+          };
+        }
 
         // Totais das medições
         row++;

@@ -38,6 +38,10 @@ export interface MedicaoManual {
   descricao: string;
   // Vínculo com BM
   codigoServico?: string;
+  // Valores do item vinculado
+  precoUnitario?: number;
+  valorTotal?: number;
+  unidade?: string;
 }
 
 export interface Activity {
