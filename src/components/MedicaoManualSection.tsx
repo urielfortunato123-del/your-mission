@@ -40,6 +40,11 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
 
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
+  const parseNumericValue = (value: string): number => {
+    const cleaned = value.replace(/[^\d,.-]/g, '').replace(',', '.');
+    return parseFloat(cleaned) || 0;
+  };
+
   const calcularDistancia = (kmInicial: string, kmFinal: string): string => {
     const ini = parseKm(kmInicial);
     const fim = parseKm(kmFinal);
@@ -50,7 +55,34 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
     return '';
   };
 
+  const calcularArea = (distanciaStr: string, larguraStr: string): string => {
+    // Distância em km, largura em m -> área em m²
+    const distanciaKm = parseNumericValue(distanciaStr);
+    const larguraM = parseNumericValue(larguraStr);
+    if (distanciaKm > 0 && larguraM > 0) {
+      const distanciaM = distanciaKm * 1000; // converter km para m
+      const area = distanciaM * larguraM;
+      return area.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' m²';
+    }
+    return '';
+  };
+
+  const calcularVolume = (distanciaStr: string, larguraStr: string, alturaStr: string): string => {
+    // Distância em km, largura e altura em m -> volume em m³
+    const distanciaKm = parseNumericValue(distanciaStr);
+    const larguraM = parseNumericValue(larguraStr);
+    const alturaM = parseNumericValue(alturaStr);
+    if (distanciaKm > 0 && larguraM > 0 && alturaM > 0) {
+      const distanciaM = distanciaKm * 1000;
+      const volume = distanciaM * larguraM * alturaM;
+      return volume.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' m³';
+    }
+    return '';
+  };
+
   const distanciaCalculada = calcularDistancia(entradaAtual.kmInicial, entradaAtual.kmFinal);
+  const areaCalculada = calcularArea(distanciaCalculada, entradaAtual.largura);
+  const volumeCalculado = calcularVolume(distanciaCalculada, entradaAtual.largura, entradaAtual.altura);
 
   const handleAdicionar = () => {
     const novaMedicao: MedicaoManual = {
@@ -61,6 +93,8 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
       largura: entradaAtual.largura,
       altura: entradaAtual.altura,
       tonelada: entradaAtual.tonelada,
+      area: areaCalculada,
+      volume: volumeCalculado,
       faixa: entradaAtual.faixa,
       sentido: entradaAtual.sentido,
       material: entradaAtual.material,
@@ -163,6 +197,28 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
               onChange={(e) => setEntradaAtual(prev => ({ ...prev, tonelada: e.target.value }))}
               placeholder="240 ton"
               className="h-8 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Campos calculados: Área e Volume */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Área (auto)</Label>
+            <Input
+              value={areaCalculada}
+              readOnly
+              placeholder="Distância × Largura"
+              className="h-8 text-sm bg-muted/50 text-primary font-medium"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Volume (auto)</Label>
+            <Input
+              value={volumeCalculado}
+              readOnly
+              placeholder="Área × Altura"
+              className="h-8 text-sm bg-muted/50 text-primary font-medium"
             />
           </div>
         </div>
@@ -305,6 +361,12 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
                   
                   <CollapsibleContent>
                     <div className="px-2 pb-2 pt-1 border-t bg-muted/30 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                      {medicao.area && (
+                        <span className="text-primary"><strong>Área:</strong> {medicao.area}</span>
+                      )}
+                      {medicao.volume && (
+                        <span className="text-primary"><strong>Volume:</strong> {medicao.volume}</span>
+                      )}
                       {medicao.faixa && (
                         <span><strong>Faixa:</strong> {medicao.faixa}</span>
                       )}

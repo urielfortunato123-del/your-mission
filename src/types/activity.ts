@@ -27,6 +27,9 @@ export interface MedicaoManual {
   largura: string;
   altura: string;
   tonelada: string;
+  // Campos calculados
+  area: string;
+  volume: string;
   // Campos adicionais baseados no Excel
   faixa: string;
   sentido: string;
