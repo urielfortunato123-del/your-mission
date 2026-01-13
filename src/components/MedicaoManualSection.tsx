@@ -4,12 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface MedicaoManualSectionProps {
   medicoes: MedicaoManual[];
   onMedicoesChange: (medicoes: MedicaoManual[]) => void;
+  textoAtividade?: string;
 }
 
 const parseKm = (value: string): number => {
@@ -24,7 +27,7 @@ const formatKm = (value: number): string => {
 const FAIXA_OPTIONS = ['I', 'II', 'III', 'Acostamento', 'I - II', 'I - II - Acostamento', 'Fora da Faixa de Domínio'];
 const SENTIDO_OPTIONS = ['Leste', 'Oeste', 'Norte', 'Sul', 'Ambos'];
 
-export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManualSectionProps) {
+export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividade }: MedicaoManualSectionProps) {
   const [entradaAtual, setEntradaAtual] = useState({
     kmInicial: '',
     kmFinal: '',
@@ -39,6 +42,107 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
   });
 
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  const handleExtractWithAI = async () => {
+    if (!textoAtividade || textoAtividade.trim() === '') {
+      toast.error('Preencha o campo de atividades antes de extrair medições');
+      return;
+    }
+
+    setIsExtracting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('extract-medicoes', {
+        body: { textoAtividade }
+      });
+
+      if (error) {
+        console.error('Erro ao extrair medições:', error);
+        toast.error('Erro ao extrair medições: ' + error.message);
+        return;
+      }
+
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      if (data.medicoes && data.medicoes.length > 0) {
+        const novasMedicoes: MedicaoManual[] = data.medicoes.map((m: any) => {
+          const kmIni = m.kmInicial || '';
+          const kmFim = m.kmFinal || '';
+          const distancia = calcularDistanciaFromKm(kmIni, kmFim);
+          const area = calcularAreaFromValues(distancia, m.largura || '');
+          const volume = calcularVolumeFromValues(distancia, m.largura || '', m.altura || '');
+          
+          return {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            kmInicial: kmIni,
+            kmFinal: kmFim,
+            distancia,
+            largura: m.largura || '',
+            altura: m.altura || '',
+            tonelada: m.tonelada || '',
+            area,
+            volume,
+            faixa: m.faixa || '',
+            sentido: m.sentido || '',
+            material: m.material || '',
+            responsavel: m.responsavel || '',
+            descricao: m.descricao || '',
+          };
+        });
+
+        onMedicoesChange([...medicoes, ...novasMedicoes]);
+        toast.success(`${novasMedicoes.length} medição(ões) extraída(s) com sucesso!`);
+      } else {
+        toast.info('Nenhuma medição encontrada no texto');
+      }
+    } catch (err) {
+      console.error('Erro:', err);
+      toast.error('Erro ao processar extração');
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const calcularDistanciaFromKm = (kmInicial: string, kmFinal: string): string => {
+    const ini = parseKm(kmInicial);
+    const fim = parseKm(kmFinal);
+    if (ini > 0 && fim > 0 && fim >= ini) {
+      const distancia = fim - ini;
+      return formatKm(distancia) + ' km';
+    }
+    return '';
+  };
+
+  const calcularAreaFromValues = (distanciaStr: string, larguraStr: string): string => {
+    const distanciaKm = parseNumericValueLocal(distanciaStr);
+    const larguraM = parseNumericValueLocal(larguraStr);
+    if (distanciaKm > 0 && larguraM > 0) {
+      const distanciaM = distanciaKm * 1000;
+      const area = distanciaM * larguraM;
+      return area.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' m²';
+    }
+    return '';
+  };
+
+  const calcularVolumeFromValues = (distanciaStr: string, larguraStr: string, alturaStr: string): string => {
+    const distanciaKm = parseNumericValueLocal(distanciaStr);
+    const larguraM = parseNumericValueLocal(larguraStr);
+    const alturaM = parseNumericValueLocal(alturaStr);
+    if (distanciaKm > 0 && larguraM > 0 && alturaM > 0) {
+      const distanciaM = distanciaKm * 1000;
+      const volume = distanciaM * larguraM * alturaM;
+      return volume.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' m³';
+    }
+    return '';
+  };
+
+  const parseNumericValueLocal = (value: string): number => {
+    const cleaned = value.replace(/[^\d,.-]/g, '').replace(',', '.');
+    return parseFloat(cleaned) || 0;
+  };
 
   const parseNumericValue = (value: string): number => {
     const cleaned = value.replace(/[^\d,.-]/g, '').replace(',', '.');
@@ -135,6 +239,30 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
 
   return (
     <div className="space-y-4">
+      {/* Botão de extração via IA */}
+      {textoAtividade && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleExtractWithAI}
+          disabled={isExtracting}
+          className="w-full border-primary/50 text-primary hover:bg-primary/10"
+        >
+          {isExtracting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Extraindo medições...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Extrair Medições do Texto com IA
+            </>
+          )}
+        </Button>
+      )}
+
       <div className="p-3 border rounded-lg bg-background space-y-3">
         <p className="text-sm font-medium text-muted-foreground">Adicionar Medição Manual</p>
         
