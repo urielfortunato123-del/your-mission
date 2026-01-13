@@ -206,6 +206,21 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividad
   const volumeCalculado = calcularVolume(distanciaCalculada, entradaAtual.largura, entradaAtual.altura);
 
   const handleAdicionar = () => {
+    // Calcular quantidade baseado no tipo de medição (área, volume, tonelada ou distância)
+    let quantidade = 0;
+    if (entradaAtual.tonelada) {
+      quantidade = parseNumericValueLocal(entradaAtual.tonelada);
+    } else if (volumeCalculado) {
+      quantidade = parseNumericValueLocal(volumeCalculado);
+    } else if (areaCalculada) {
+      quantidade = parseNumericValueLocal(areaCalculada);
+    } else if (distanciaCalculada) {
+      quantidade = parseNumericValueLocal(distanciaCalculada) * 1000; // km para m
+    }
+
+    const precoUnit = matchedPriceItem?.precoUnitario || 0;
+    const valorTot = quantidade * precoUnit;
+
     const novaMedicao: MedicaoManual = {
       id: Date.now().toString(),
       kmInicial: entradaAtual.kmInicial,
@@ -222,6 +237,9 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividad
       responsavel: entradaAtual.responsavel,
       descricao: entradaAtual.descricao,
       codigoServico: entradaAtual.codigoServico,
+      precoUnitario: precoUnit,
+      valorTotal: valorTot,
+      unidade: matchedPriceItem?.unidade || '',
     };
 
     onMedicoesChange([...medicoes, novaMedicao]);
@@ -523,6 +541,11 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividad
                 <div className="bg-background border rounded text-xs">
                   <div className="flex items-center justify-between p-2">
                     <div className="flex flex-wrap gap-2 items-center flex-1">
+                      {medicao.codigoServico && (
+                        <Badge variant="secondary" className="text-xs font-mono bg-blue-500/10 text-blue-600 border-blue-500/30">
+                          {medicao.codigoServico}
+                        </Badge>
+                      )}
                       {medicao.descricao && (
                         <span className="font-semibold text-primary">{medicao.descricao}</span>
                       )}
@@ -534,6 +557,11 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange, textoAtividad
                       )}
                       {medicao.tonelada && (
                         <span><strong>T:</strong> {medicao.tonelada}</span>
+                      )}
+                      {medicao.valorTotal && medicao.valorTotal > 0 && (
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30 ml-auto">
+                          R$ {medicao.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-1">
