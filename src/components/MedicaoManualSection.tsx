@@ -3,7 +3,9 @@ import { MedicaoManual } from '@/types/activity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface MedicaoManualSectionProps {
   medicoes: MedicaoManual[];
@@ -11,7 +13,6 @@ interface MedicaoManualSectionProps {
 }
 
 const parseKm = (value: string): number => {
-  // Parse km values like "48,700" or "48.700" to 48.700
   const cleaned = value.replace(/[^\d,.-]/g, '').replace(',', '.');
   return parseFloat(cleaned) || 0;
 };
@@ -20,6 +21,9 @@ const formatKm = (value: number): string => {
   return value.toFixed(3).replace('.', ',');
 };
 
+const FAIXA_OPTIONS = ['I', 'II', 'III', 'Acostamento', 'I - II', 'I - II - Acostamento', 'Fora da Faixa de Domínio'];
+const SENTIDO_OPTIONS = ['Leste', 'Oeste', 'Norte', 'Sul', 'Ambos'];
+
 export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManualSectionProps) {
   const [entradaAtual, setEntradaAtual] = useState({
     kmInicial: '',
@@ -27,7 +31,14 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
     largura: '',
     altura: '',
     tonelada: '',
+    faixa: '',
+    sentido: '',
+    material: '',
+    responsavel: '',
+    descricao: '',
   });
+
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const calcularDistancia = (kmInicial: string, kmFinal: string): string => {
     const ini = parseKm(kmInicial);
@@ -50,17 +61,26 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
       largura: entradaAtual.largura,
       altura: entradaAtual.altura,
       tonelada: entradaAtual.tonelada,
+      faixa: entradaAtual.faixa,
+      sentido: entradaAtual.sentido,
+      material: entradaAtual.material,
+      responsavel: entradaAtual.responsavel,
+      descricao: entradaAtual.descricao,
     };
 
     onMedicoesChange([...medicoes, novaMedicao]);
 
-    // Limpar campos para próxima entrada
     setEntradaAtual({
       kmInicial: '',
       kmFinal: '',
       largura: '',
       altura: '',
       tonelada: '',
+      faixa: '',
+      sentido: '',
+      material: '',
+      responsavel: '',
+      descricao: '',
     });
   };
 
@@ -68,14 +88,23 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
     onMedicoesChange(medicoes.filter(m => m.id !== id));
   };
 
+  const toggleExpand = (id: string) => {
+    setExpandedItems(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
   const temDadosParaAdicionar = entradaAtual.kmInicial || entradaAtual.kmFinal || 
-    entradaAtual.largura || entradaAtual.altura || entradaAtual.tonelada;
+    entradaAtual.largura || entradaAtual.altura || entradaAtual.tonelada ||
+    entradaAtual.faixa || entradaAtual.sentido || entradaAtual.material ||
+    entradaAtual.responsavel || entradaAtual.descricao;
 
   return (
     <div className="space-y-4">
       <div className="p-3 border rounded-lg bg-background space-y-3">
         <p className="text-sm font-medium text-muted-foreground">Adicionar Medição Manual</p>
         
+        {/* Primeira linha: KM, Distância, Medidas */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
           <div className="space-y-1">
             <Label className="text-xs">Km Inicial</Label>
@@ -137,6 +166,74 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
             />
           </div>
         </div>
+
+        {/* Segunda linha: Faixa, Sentido, Responsável, Material */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Faixa</Label>
+            <Select
+              value={entradaAtual.faixa}
+              onValueChange={(value) => setEntradaAtual(prev => ({ ...prev, faixa: value }))}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {FAIXA_OPTIONS.map(opt => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-1">
+            <Label className="text-xs">Sentido</Label>
+            <Select
+              value={entradaAtual.sentido}
+              onValueChange={(value) => setEntradaAtual(prev => ({ ...prev, sentido: value }))}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {SENTIDO_OPTIONS.map(opt => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-1">
+            <Label className="text-xs">Responsável</Label>
+            <Input
+              value={entradaAtual.responsavel}
+              onChange={(e) => setEntradaAtual(prev => ({ ...prev, responsavel: e.target.value }))}
+              placeholder="Ex: Escobar"
+              className="h-8 text-sm"
+            />
+          </div>
+          
+          <div className="space-y-1">
+            <Label className="text-xs">Material</Label>
+            <Input
+              value={entradaAtual.material}
+              onChange={(e) => setEntradaAtual(prev => ({ ...prev, material: e.target.value }))}
+              placeholder="Ex: C.A.U.Q. EGL"
+              className="h-8 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Terceira linha: Descrição */}
+        <div className="space-y-1">
+          <Label className="text-xs">Descrição da Atividade</Label>
+          <Input
+            value={entradaAtual.descricao}
+            onChange={(e) => setEntradaAtual(prev => ({ ...prev, descricao: e.target.value }))}
+            placeholder="Ex: Fresagem, recomposição e pintura horizontal"
+            className="h-8 text-sm"
+          />
+        </div>
         
         <Button
           type="button"
@@ -156,39 +253,80 @@ export function MedicaoManualSection({ medicoes, onMedicoesChange }: MedicaoManu
           <p className="text-sm font-medium text-muted-foreground">
             Medições Adicionadas ({medicoes.length})
           </p>
-          <div className="space-y-1 max-h-40 overflow-y-auto">
+          <div className="space-y-1 max-h-60 overflow-y-auto">
             {medicoes.map((medicao) => (
-              <div
-                key={medicao.id}
-                className="flex items-center justify-between p-2 bg-background border rounded text-xs"
+              <Collapsible 
+                key={medicao.id} 
+                open={expandedItems.includes(medicao.id)}
+                onOpenChange={() => toggleExpand(medicao.id)}
               >
-                <div className="flex flex-wrap gap-2">
-                  {medicao.kmInicial && (
-                    <span><strong>Km:</strong> {medicao.kmInicial} → {medicao.kmFinal}</span>
-                  )}
-                  {medicao.distancia && (
-                    <span className="text-primary font-medium">({medicao.distancia})</span>
-                  )}
-                  {medicao.largura && (
-                    <span><strong>L:</strong> {medicao.largura}</span>
-                  )}
-                  {medicao.altura && (
-                    <span><strong>A:</strong> {medicao.altura}</span>
-                  )}
-                  {medicao.tonelada && (
-                    <span><strong>T:</strong> {medicao.tonelada}</span>
-                  )}
+                <div className="bg-background border rounded text-xs">
+                  <div className="flex items-center justify-between p-2">
+                    <div className="flex flex-wrap gap-2 items-center flex-1">
+                      {medicao.descricao && (
+                        <span className="font-semibold text-primary">{medicao.descricao}</span>
+                      )}
+                      {medicao.kmInicial && (
+                        <span><strong>Km:</strong> {medicao.kmInicial} → {medicao.kmFinal}</span>
+                      )}
+                      {medicao.distancia && (
+                        <span className="text-primary font-medium">({medicao.distancia})</span>
+                      )}
+                      {medicao.tonelada && (
+                        <span><strong>T:</strong> {medicao.tonelada}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                        >
+                          {expandedItems.includes(medicao.id) ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </CollapsibleTrigger>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive hover:text-destructive"
+                        onClick={() => handleRemover(medicao.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <CollapsibleContent>
+                    <div className="px-2 pb-2 pt-1 border-t bg-muted/30 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                      {medicao.faixa && (
+                        <span><strong>Faixa:</strong> {medicao.faixa}</span>
+                      )}
+                      {medicao.sentido && (
+                        <span><strong>Sentido:</strong> {medicao.sentido}</span>
+                      )}
+                      {medicao.responsavel && (
+                        <span><strong>Resp:</strong> {medicao.responsavel}</span>
+                      )}
+                      {medicao.material && (
+                        <span><strong>Material:</strong> {medicao.material}</span>
+                      )}
+                      {medicao.largura && (
+                        <span><strong>L:</strong> {medicao.largura}</span>
+                      )}
+                      {medicao.altura && (
+                        <span><strong>A:</strong> {medicao.altura}</span>
+                      )}
+                    </div>
+                  </CollapsibleContent>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-destructive hover:text-destructive"
-                  onClick={() => handleRemover(medicao.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+              </Collapsible>
             ))}
           </div>
         </div>
