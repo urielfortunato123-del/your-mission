@@ -766,7 +766,7 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
           {/* Extração de Serviços para Memória de Cálculo */}
           {priceItems.length > 0 && onServicesExtracted && (
             <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-2">
                   <Calculator className="h-4 w-4" />
                   LANÇAMENTO DE SERVIÇOS
@@ -781,6 +781,21 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
                   {isExtractingServices ? 'Extraindo...' : 'Extrair Serviços (IA)'}
                 </Button>
               </div>
+
+              {/* 🔥 Indicador da BM sendo usada */}
+              {formData.contratada && (
+                <div className="flex items-center gap-2 p-2 rounded-md bg-primary/10 border border-primary/20">
+                  <span className="text-xs font-medium text-primary">📊 BM:</span>
+                  <span className="text-xs font-semibold text-primary">{formData.contratada}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({priceItems.filter(p => {
+                      const contratadaItem = (p.contratada || '').toUpperCase();
+                      const contratadaRDA = (formData.contratada || '').toUpperCase();
+                      return contratadaItem.includes(contratadaRDA) || contratadaRDA.includes(contratadaItem);
+                    }).length} itens disponíveis)
+                  </span>
+                </div>
+              )}
               
               {extractedServices.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -788,65 +803,119 @@ export function ActivityForm({ open, onClose, onSave, initialData, priceItems = 
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {extractedServices.map((service, index) => (
-                    <div key={index} className="flex gap-2 items-center p-2 border rounded bg-background">
-                      <Badge 
-                        variant={service.matched ? 'default' : 'secondary'} 
-                        className="shrink-0 cursor-pointer hover:opacity-80"
-                        onClick={() => {
-                          setEditingServiceIndex(index);
-                          setMatchCorrectorOpen(true);
-                        }}
-                        title="Clique para editar vínculo"
-                      >
-                        {service.codigo || 'N/A'}
-                      </Badge>
-                      <span className="flex-1 text-sm truncate" title={service.descricaoOriginal}>
-                        {service.descricaoPlanilha || service.descricaoOriginal}
+                  {/* Header da tabela */}
+                  <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-2">
+                    <div className="col-span-2">Código</div>
+                    <div className="col-span-4">Descrição</div>
+                    <div className="col-span-1 text-right">Qtd</div>
+                    <div className="col-span-1">Un</div>
+                    <div className="col-span-2 text-right">P.Unit</div>
+                    <div className="col-span-2 text-right">Total</div>
+                  </div>
+                  
+                  {extractedServices.map((service, index) => {
+                    const valorTotal = (service.quantidade || 0) * (service.precoUnitario || 0);
+                    
+                    return (
+                      <div key={index} className="grid grid-cols-12 gap-2 items-center p-2 border rounded bg-background">
+                        <div className="col-span-12 sm:col-span-2">
+                          <Badge 
+                            variant={service.matched ? 'default' : 'secondary'} 
+                            className="shrink-0 cursor-pointer hover:opacity-80 w-full justify-center"
+                            onClick={() => {
+                              setEditingServiceIndex(index);
+                              setMatchCorrectorOpen(true);
+                            }}
+                            title="Clique para editar vínculo"
+                          >
+                            {service.codigo || 'SEM CÓDIGO'}
+                          </Badge>
+                        </div>
+                        
+                        <div className="col-span-12 sm:col-span-4">
+                          <span className="text-sm truncate block" title={service.descricaoOriginal}>
+                            {service.descricaoPlanilha || service.descricaoOriginal}
+                          </span>
+                        </div>
+                        
+                        <div className="col-span-4 sm:col-span-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={service.quantidade}
+                            onChange={(e) => {
+                              const updated = [...extractedServices];
+                              updated[index].quantidade = parseFloat(e.target.value) || 0;
+                              updated[index].valorTotal = (parseFloat(e.target.value) || 0) * (updated[index].precoUnitario || 0);
+                              setExtractedServices(updated);
+                            }}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        
+                        <div className="col-span-2 sm:col-span-1">
+                          <span className="text-xs text-muted-foreground">{service.unidade}</span>
+                        </div>
+                        
+                        <div className="col-span-3 sm:col-span-2 text-right">
+                          <span className="text-sm font-mono">
+                            {service.precoUnitario ? `R$ ${service.precoUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+                          </span>
+                        </div>
+                        
+                        <div className="col-span-3 sm:col-span-2 text-right flex items-center justify-end gap-1">
+                          <span className={`text-sm font-mono font-semibold ${valorTotal > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                            {valorTotal > 0 ? `R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+                          </span>
+                          
+                          {!service.matched && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingServiceIndex(index);
+                                setMatchCorrectorOpen(true);
+                              }}
+                              className="h-6 w-6"
+                              title="Vincular código"
+                            >
+                              <Link2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                          
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => {
+                              setExtractedServices(extractedServices.filter((_, i) => i !== index));
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Totais */}
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      {extractedServices.filter(s => s.matched).length} de {extractedServices.length} serviço(s) vinculados à BM
+                    </p>
+                    <div className="text-right">
+                      <span className="text-sm text-muted-foreground mr-2">Total:</span>
+                      <span className="text-lg font-bold text-primary">
+                        R$ {extractedServices
+                          .filter(s => s.matched)
+                          .reduce((sum, s) => sum + ((s.quantidade || 0) * (s.precoUnitario || 0)), 0)
+                          .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={service.quantidade}
-                        onChange={(e) => {
-                          const updated = [...extractedServices];
-                          updated[index].quantidade = parseFloat(e.target.value) || 0;
-                          setExtractedServices(updated);
-                        }}
-                        className="w-24"
-                      />
-                      <span className="text-sm text-muted-foreground w-12">{service.unidade}</span>
-                      {!service.matched && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setEditingServiceIndex(index);
-                            setMatchCorrectorOpen(true);
-                          }}
-                          className="text-xs"
-                        >
-                          <Link2 className="h-3 w-3 mr-1" />
-                          Vincular
-                        </Button>
-                      )}
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => {
-                          setExtractedServices(extractedServices.filter((_, i) => i !== index));
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
                     </div>
-                  ))}
-                  <p className="text-sm text-muted-foreground">
-                    {extractedServices.filter(s => s.matched).length} de {extractedServices.length} serviço(s) com código válido serão lançados
-                  </p>
+                  </div>
                 </div>
               )}
             </div>
